@@ -12,7 +12,7 @@
     "categories": [
         "Other"
     ],
-    "icon": "/icon.png",
+    "icon": "icon.png",
     "galleryBanner": {
         "color": "#3775A9",
         "theme": "dark"
