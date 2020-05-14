@@ -66,25 +66,24 @@ function presentPackageInfo(info: PackageInfo): string {
     return infoPresentation
 }
 
+async function provideHover(document: vscode.TextDocument, position: vscode.Position) {
+    const spec: PackageSpec | null = extractPackageSpec(document.lineAt(position.line))
+    if (spec === null) return new vscode.Hover('')
+    let infoPresentation: string | undefined = infoPresentationCache.get(spec.id)
+    if (infoPresentation === undefined) {
+        const [status, info]: [number | null, PackageInfo | null] = await fetchPackageInfo(spec)
+        if (status === 200) infoPresentation = presentPackageInfo(info!)
+        else if (status === 404) infoPresentation = `{id_raw} is not available in PyPI`
+        if (infoPresentation) infoPresentationCache.set(spec.id, infoPresentation)
+        else infoPresentation = linkify(
+            `could not fetch ${spec.id_raw} information from PyPI`, `https://pypi.org/project/${spec.id_raw}/`
+        )
+    }
+    return new vscode.Hover(infoPresentation.replace('{id_raw}', spec.id_raw))
+}
+
 export function activate(_: vscode.ExtensionContext) {
-    vscode.languages.registerHoverProvider(
-        { language: 'pip-requirements' },
-        {
-            async provideHover(document: vscode.TextDocument, position: vscode.Position) {
-                const spec: PackageSpec | null = extractPackageSpec(document.lineAt(position.line))
-                if (spec === null) return new vscode.Hover('')
-                let infoPresentation: string | undefined = infoPresentationCache.get(spec.id)
-                if (infoPresentation === undefined) {
-                    const [status, info]: [number | null, PackageInfo | null] = await fetchPackageInfo(spec)
-                    if (status === 200) infoPresentation = presentPackageInfo(info!)
-                    else if (status === 404) infoPresentation = `{id_raw} is not available in PyPI`
-                    if (infoPresentation) infoPresentationCache.set(spec.id, infoPresentation)
-                    else infoPresentation = linkify(`could not fetch ${spec.id_raw} information from PyPI`, `https://pypi.org/project/${spec.id_raw}/`)
-                }
-                return new vscode.Hover(infoPresentation.replace('{id_raw}', spec.id_raw))
-            }
-        }
-    )
+    vscode.languages.registerHoverProvider({ language: 'pip-requirements' }, { provideHover })
 }
 
 export function deactivate() {
