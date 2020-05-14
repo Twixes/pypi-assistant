@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.2]
+
+### Fixed
+- Extension activation.
+
 ## [1.0.1]
 
 ### Added
