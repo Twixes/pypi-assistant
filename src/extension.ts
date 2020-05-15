@@ -20,7 +20,7 @@ interface PackageInfo {
     release_url: string
 }
 
-const deconstructionRe: RegExp = /^([\w\d._-]+)(\[[\w\d,._-]+\])?(?:(==|~=|>=?|<=?)([\w\d._-]+)(?:,(==|~=|>=?|<=?)([\w\d._-]+))?)?$/i
+const deconstructionRe: RegExp = /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==|~=|>=?|<=?)([\w\d._-]+)(?:,(==|~=|>=?|<=?)([\w\d._-]+))?)?$/i
 
 let infoPresentationCache: Map<string, string> = new Map()
 
