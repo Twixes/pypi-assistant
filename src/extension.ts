@@ -20,6 +20,8 @@ interface PackageInfo {
     release_url: string
 }
 
+type PackageInfoRequest = [number | null, PackageInfo | null]
+
 const deconstructionRe: RegExp = /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==|~=|>=?|<=?)([\w\d._-]+)(?:,(==|~=|>=?|<=?)([\w\d._-]+))?)?$/i
 
 let infoPresentationCache: Map<string, string> = new Map()
@@ -42,7 +44,7 @@ function extractPackageRequirement(line: vscode.TextLine): PackageRequirement | 
     }
 }
 
-async function fetchPackageInfo(requirement: PackageRequirement): Promise<[number | null, PackageInfo | null]> {
+async function fetchPackageInfo(requirement: PackageRequirement): Promise<PackageInfoRequest> {
     try {
         const response: Response = await fetch(`https://pypi.org/pypi/${requirement.id}/json`)
         let info: PackageInfo | null = null
@@ -71,7 +73,7 @@ async function provideHover(document: vscode.TextDocument, position: vscode.Posi
     if (requirement === null) return new vscode.Hover('')
     let infoPresentation: string | undefined = infoPresentationCache.get(requirement.id)
     if (infoPresentation === undefined) {
-        const [status, info]: [number | null, PackageInfo | null] = await fetchPackageInfo(requirement)
+        const [status, info]: PackageInfoRequest = await fetchPackageInfo(requirement)
         if (status === 200) infoPresentation = presentPackageInfo(info!)
         else if (status === 404) infoPresentation = `{id_raw} is not available in PyPI`
         if (infoPresentation) infoPresentationCache.set(requirement.id, infoPresentation)
@@ -80,7 +82,8 @@ async function provideHover(document: vscode.TextDocument, position: vscode.Posi
             `https://pypi.org/project/${requirement.id_raw}/`
         )
     }
-    return new vscode.Hover(infoPresentation.replace('{id_raw}', requirement.id_raw))
+    infoPresentation = infoPresentation.replace('{id_raw}', requirement.id_raw)
+    return new vscode.Hover(infoPresentation)
 }
 
 export function activate(_: vscode.ExtensionContext) {
