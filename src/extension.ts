@@ -87,7 +87,7 @@ async function provideHover(document: vscode.TextDocument, position: vscode.Posi
 }
 
 export function activate(_: vscode.ExtensionContext) {
-    vscode.languages.registerHoverProvider({ language: 'pip-requirements' }, { provideHover })
+    vscode.languages.registerHoverProvider('pip-requirements', { provideHover })
 }
 
 export function deactivate() {
