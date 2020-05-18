@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.3]
+
+### Changed
+- Improved Marketplace configuration.
+
 ## [1.0.2]
 
 ### Fixed
@@ -12,4 +17,4 @@
 
 ## [1.0.0]
 
-- Initial release
+Initial release.
