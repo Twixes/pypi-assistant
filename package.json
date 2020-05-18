@@ -12,6 +12,7 @@
     "categories": [
         "Other"
     ],
+    "keywords": ["pip requirements", "python", "requirements.txt"],
     "icon": "icon.png",
     "galleryBanner": {
         "color": "#1e415e",
