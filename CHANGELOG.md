@@ -1,5 +1,10 @@
 # Change Log
 
+## [1.0.4]
+
+### Changed
+- Tuned regexes for improved requirements parsing. 
+
 ## [1.0.3]
 
 ### Changed
