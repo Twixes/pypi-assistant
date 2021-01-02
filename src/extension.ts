@@ -22,7 +22,7 @@ interface PackageInfo {
 
 type PackageInfoRequest = [number | null, PackageInfo | null]
 
-const deconstructionRe: RegExp = /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==|~=|>=?|<=?)([\w\d._-]+)(?:,(==|~=|>=?|<=?)([\w\d._-]+))?)?$/i
+const deconstructionRe: RegExp = /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==?|~=?|>=?|<=?)([\w\d._-]*)(?:,(?:(==?|~=?|>=?|<=?)([\w\d._-]*))?)*)?$/i
 
 let infoPresentationCache: Map<string, string> = new Map()
 
@@ -31,7 +31,7 @@ function linkify(text: string, link?: string): string {
 }
 
 function extractPackageRequirement(line: vscode.TextLine): PackageRequirement | null {
-    const match = line.text.replace(/\s/g, '').match(deconstructionRe)
+    const match = line.text.replace(/(?:\s*(?:(?=#).*)?$|\s+)/g, '').match(deconstructionRe)
     if (match === null) return null
     let constraints: [string, string][] = []
     if (match[4]) constraints.push([match[3], match[4]])
