@@ -24,7 +24,7 @@ type PackageInfoRequest = [number | null, PackageInfo | null]
 
 const deconstructionRe: RegExp = /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==?|~=?|>=?|<=?)([\w\d._-]*)(?:,(?:(==?|~=?|>=?|<=?)([\w\d._-]*))?)*)?$/i
 
-let infoPresentationCache: Map<string, string> = new Map()
+let infoPresentationCache: Map<string, Array<string>> = new Map()
 
 function linkify(text: string, link?: string): string {
     return link ? `[${text}](${link})`: text
@@ -55,7 +55,7 @@ async function fetchPackageInfo(requirement: PackageRequirement): Promise<Packag
     }
 }
 
-function presentPackageInfo(info: PackageInfo) {
+function presentPackageInfo(info: PackageInfo): string[] {
     const summarySubPart: string = info.summary ? ` – ${linkify(info.summary, info.home_page)}` : ''
     const headPart: string = `**${linkify(info.name, info.package_url)}${summarySubPart}**`
     const emailSubpart: string = info.author_email ? ` (${info.author_email})` : ''
@@ -63,9 +63,9 @@ function presentPackageInfo(info: PackageInfo) {
     const licenseSubpart: string = info.license ? ` ${info.license.replace(/ licen[cs]e/gi, '')} licensed.` : ''
     const versionPart: string = `Latest version: ${linkify(info.version, info.release_url)}.`
     const versionPartLens: string = `Latest version: ${info.version}`
-    const infoPresentation: string = [
+    const infoPresentation: Array<string> = [
         headPart, authorSubpart + licenseSubpart, versionPart, versionPartLens
-    ].filter(Boolean).join('\n\n')
+    ].filter(Boolean)
 
     return infoPresentation
 }
@@ -73,10 +73,9 @@ function presentPackageInfo(info: PackageInfo) {
 async function provideHover(document: vscode.TextDocument, position: vscode.Position) {
     const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(position.line))
     if (requirement === null) return new vscode.Hover('')
-    let infoPresentation: string | undefined = infoPresentationCache.get(requirement.id)
+    let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
     if (infoPresentation === undefined) return new vscode.Hover('')
-    infoPresentation = infoPresentation.replace('{id_raw}', requirement.id_raw)
-    return new vscode.Hover(infoPresentation.split("\n\n").slice(0,-1).join("\n\n"))
+    return new vscode.Hover(infoPresentation.slice(0,-1).join("\n\n").replace('{id_raw}', requirement.id_raw))
 }
 
 class MyCodeLensProvider implements vscode.CodeLensProvider {
@@ -90,20 +89,19 @@ class MyCodeLensProvider implements vscode.CodeLensProvider {
       
       const infoPresentations: Promise<vscode.Command[]> = Promise.all(requirements.map(async (requirement)=>{
         if(requirement === null) return { command: "", title: ""}
-        let infoPresentation: string | undefined = infoPresentationCache.get(requirement.id)
+        let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
         if (infoPresentation === undefined) {
           const [status, info]: PackageInfoRequest = await fetchPackageInfo(requirement)
           if (status === 200) infoPresentation = presentPackageInfo(info!)
-          else if (status === 404) infoPresentation = `{id_raw} is not available in PyPI`
+          else if (status === 404) infoPresentation = [`{id_raw} is not available in PyPI`]
+
           if (infoPresentation) infoPresentationCache.set(requirement.id, infoPresentation)
-          else infoPresentation = linkify(
+          else infoPresentation = [linkify(
               `could not fetch ${requirement.id_raw} information from PyPI`,
               `https://pypi.org/project/${requirement.id_raw}/`
-          )
+          )]
         }
-        infoPresentation = infoPresentation.replace('{id_raw}', requirement.id_raw)
-        
-        return {command: "", title: infoPresentation.split("\n\n").slice(-1)[0]}
+        return {command: "", title: infoPresentation.slice(-1)[0].replace('{id_raw}', requirement.id_raw)}
       }))
 
       return (await infoPresentations)
