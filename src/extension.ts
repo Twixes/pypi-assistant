@@ -55,16 +55,18 @@ async function fetchPackageInfo(requirement: PackageRequirement): Promise<Packag
     }
 }
 
-function presentPackageInfo(info: PackageInfo): string {
+function presentPackageInfo(info: PackageInfo) {
     const summarySubPart: string = info.summary ? ` – ${linkify(info.summary, info.home_page)}` : ''
     const headPart: string = `**${linkify(info.name, info.package_url)}${summarySubPart}**`
     const emailSubpart: string = info.author_email ? ` (${info.author_email})` : ''
     const authorSubpart: string = info.author && info.author_email ? `By ${info.author}${emailSubpart}.` : ''
     const licenseSubpart: string = info.license ? ` ${info.license.replace(/ licen[cs]e/gi, '')} licensed.` : ''
     const versionPart: string = `Latest version: ${linkify(info.version, info.release_url)}.`
+    const versionPartLens: string = `Latest version: ${info.version}`
     const infoPresentation: string = [
-        headPart, authorSubpart + licenseSubpart, versionPart
+        headPart, authorSubpart + licenseSubpart, versionPart, versionPartLens
     ].filter(Boolean).join('\n\n')
+
     return infoPresentation
 }
 
@@ -72,21 +74,47 @@ async function provideHover(document: vscode.TextDocument, position: vscode.Posi
     const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(position.line))
     if (requirement === null) return new vscode.Hover('')
     let infoPresentation: string | undefined = infoPresentationCache.get(requirement.id)
-    if (infoPresentation === undefined) {
-        const [status, info]: PackageInfoRequest = await fetchPackageInfo(requirement)
-        if (status === 200) infoPresentation = presentPackageInfo(info!)
-        else if (status === 404) infoPresentation = `{id_raw} is not available in PyPI`
-        if (infoPresentation) infoPresentationCache.set(requirement.id, infoPresentation)
-        else infoPresentation = linkify(
-            `could not fetch ${requirement.id_raw} information from PyPI`,
-            `https://pypi.org/project/${requirement.id_raw}/`
-        )
-    }
+    if (infoPresentation === undefined) return new vscode.Hover('')
     infoPresentation = infoPresentation.replace('{id_raw}', requirement.id_raw)
-    return new vscode.Hover(infoPresentation)
+    return new vscode.Hover(infoPresentation.split("\n\n").slice(0,-1).join("\n\n"))
 }
 
+class MyCodeLensProvider implements vscode.CodeLensProvider {
+    async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
+
+      const lineCount: number = document.lineCount;
+
+      const requirements: Array<PackageRequirement|null> = 
+      [...Array(lineCount).keys()]
+      .map(lineNumber => extractPackageRequirement(document.lineAt(lineNumber)))
+      
+      const infoPresentations: Promise<vscode.Command[]> = Promise.all(requirements.map(async (requirement)=>{
+        if(requirement === null) return { command: "", title: ""}
+        let infoPresentation: string | undefined = infoPresentationCache.get(requirement.id)
+        if (infoPresentation === undefined) {
+          const [status, info]: PackageInfoRequest = await fetchPackageInfo(requirement)
+          if (status === 200) infoPresentation = presentPackageInfo(info!)
+          else if (status === 404) infoPresentation = `{id_raw} is not available in PyPI`
+          if (infoPresentation) infoPresentationCache.set(requirement.id, infoPresentation)
+          else infoPresentation = linkify(
+              `could not fetch ${requirement.id_raw} information from PyPI`,
+              `https://pypi.org/project/${requirement.id_raw}/`
+          )
+        }
+        infoPresentation = infoPresentation.replace('{id_raw}', requirement.id_raw)
+        
+        return {command: "", title: infoPresentation.split("\n\n").slice(-1)[0]}
+      }))
+
+      return (await infoPresentations)
+      .filter(e=> e.title !== "")
+      .map((infoPresentation,idx)=>new vscode.CodeLens(new vscode.Range(idx, 0, idx, 0), infoPresentation))
+  
+    }
+  }
+
 export function activate(_: vscode.ExtensionContext) {
+    vscode.languages.registerCodeLensProvider('pip-requirements', new MyCodeLensProvider()),
     vscode.languages.registerHoverProvider('pip-requirements', { provideHover })
 }
 
