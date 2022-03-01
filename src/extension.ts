@@ -48,7 +48,7 @@ async function fetchPackageInfo(requirement: PackageRequirement): Promise<Packag
     try {
         const response: Response = await fetch(`https://pypi.org/pypi/${requirement.id}/json`)
         let info: PackageInfo | null = null
-        if (response.ok) info = (await response.json()).info
+        if (response.ok) info = (await response.json() as { info: PackageInfo}).info
         return [response.status, info]
     } catch (e) {
         return [null, null]
