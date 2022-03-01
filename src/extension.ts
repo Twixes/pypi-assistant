@@ -70,15 +70,17 @@ function presentPackageInfo(info: PackageInfo): string[] {
     return infoPresentation
 }
 
-async function provideHover(document: vscode.TextDocument, position: vscode.Position) {
-    const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(position.line))
-    if (requirement === null) return new vscode.Hover('')
-    let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
-    if (infoPresentation === undefined) return new vscode.Hover('')
-    return new vscode.Hover(infoPresentation.slice(0,-1).join("\n\n").replace('{id_raw}', requirement.id_raw))
+class AssistantHoverProvider implements vscode.HoverProvider {
+    async provideHover(document: vscode.TextDocument, position: vscode.Position) {
+        const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(position.line))
+        if (requirement === null) return new vscode.Hover('')
+        let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
+        if (infoPresentation === undefined) return new vscode.Hover('')
+        return new vscode.Hover(infoPresentation.slice(0,-1).join("\n\n").replace('{id_raw}', requirement.id_raw))
+    }
 }
 
-class MyCodeLensProvider implements vscode.CodeLensProvider {
+class AssistantCodeLensProvider implements vscode.CodeLensProvider {
     async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
 
       const lineCount: number = document.lineCount;
@@ -112,8 +114,8 @@ class MyCodeLensProvider implements vscode.CodeLensProvider {
   }
 
 export function activate(_: vscode.ExtensionContext) {
-    vscode.languages.registerCodeLensProvider('pip-requirements', new MyCodeLensProvider()),
-    vscode.languages.registerHoverProvider('pip-requirements', { provideHover })
+    vscode.languages.registerCodeLensProvider('pip-requirements', new AssistantCodeLensProvider()),
+    vscode.languages.registerHoverProvider('pip-requirements', new AssistantHoverProvider())
 }
 
 export function deactivate() {
