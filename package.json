@@ -35,14 +35,12 @@
         "pretest": "npm run compile && npm run lint",
         "test": "node ./out/test/runTest.js"
     },
-    "dependencies": {
-        "node-fetch": "^3.1.1"
-    },
     "devDependencies": {
         "@types/vscode": "^1.64.0",
         "@types/glob": "^7.2.0",
         "@types/mocha": "9.1.0",
         "@types/node": "^17.0.21",
+        "@types/node-fetch": "^2.6.1",
         "@typescript-eslint/parser": "^5.12.1",
         "@typescript-eslint/eslint-plugin": "^5.12.1",
         "eslint": "^8.10.0",
@@ -50,6 +48,9 @@
         "mocha": "^9.2.1",
         "typescript": "^4.1.3",
         "vscode-test": "^1.6.1"
+    },
+    "dependencies": {
+        "node-fetch": "^2.6.7"
     },
     "extensionDependencies": [
         "ms-python.python"
