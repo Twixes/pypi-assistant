@@ -70,17 +70,15 @@ function presentPackageInfo(info: PackageInfo): string[] {
     return infoPresentation
 }
 
-class AssistantHoverProvider implements vscode.HoverProvider {
-    async provideHover(document: vscode.TextDocument, position: vscode.Position) {
-        const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(position.line))
-        if (requirement === null) return new vscode.Hover('')
-        let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
-        if (infoPresentation === undefined) return new vscode.Hover('')
-        return new vscode.Hover(infoPresentation.slice(0,-1).join("\n\n").replace('{id_raw}', requirement.id_raw))
-    }
+async function provideHover(document: vscode.TextDocument, position: vscode.Position) {
+    const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(position.line))
+    if (requirement === null) return new vscode.Hover('')
+    let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
+    if (infoPresentation === undefined) return new vscode.Hover('')
+    return new vscode.Hover(infoPresentation.slice(0,-1).join("\n\n").replace('{id_raw}', requirement.id_raw))
 }
 
-class AssistantCodeLensProvider implements vscode.CodeLensProvider {
+class MyCodeLensProvider implements vscode.CodeLensProvider {
     async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
 
       const lineCount: number = document.lineCount;
@@ -114,8 +112,8 @@ class AssistantCodeLensProvider implements vscode.CodeLensProvider {
   }
 
 export function activate(_: vscode.ExtensionContext) {
-    vscode.languages.registerCodeLensProvider('pip-requirements', new AssistantCodeLensProvider()),
-    vscode.languages.registerHoverProvider('pip-requirements', new AssistantHoverProvider())
+    vscode.languages.registerCodeLensProvider('pip-requirements', new MyCodeLensProvider()),
+    vscode.languages.registerHoverProvider('pip-requirements', { provideHover })
 }
 
 export function deactivate() {
