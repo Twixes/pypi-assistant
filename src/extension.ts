@@ -62,9 +62,8 @@ function presentPackageInfo(info: PackageInfo): string[] {
     const authorSubpart: string = info.author && info.author_email ? `By ${info.author}${emailSubpart}.` : ''
     const licenseSubpart: string = info.license ? ` ${info.license.replace(/ licen[cs]e/gi, '')} licensed.` : ''
     const versionPart: string = `Latest version: ${linkify(info.version, info.release_url)}.`
-    const versionPartLens: string = `Latest version: ${info.version}`
     const infoPresentation: Array<string> = [
-        headPart, authorSubpart + licenseSubpart, versionPart, versionPartLens
+        headPart, authorSubpart + licenseSubpart, versionPart
     ].filter(Boolean)
 
     return infoPresentation
@@ -78,7 +77,7 @@ async function provideHover(document: vscode.TextDocument, position: vscode.Posi
     return new vscode.Hover(infoPresentation.slice(0,-1).join("\n\n").replace('{id_raw}', requirement.id_raw))
 }
 
-class MyCodeLensProvider implements vscode.CodeLensProvider {
+class CodeLensProvider implements vscode.CodeLensProvider {
     async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
 
       const lineCount: number = document.lineCount;
@@ -101,18 +100,26 @@ class MyCodeLensProvider implements vscode.CodeLensProvider {
               `https://pypi.org/project/${requirement.id_raw}/`
           )]
         }
-        return {command: "", title: infoPresentation.slice(-1)[0].replace('{id_raw}', requirement.id_raw)}
+
+        // Extract version number from square brackets
+        const latestVersionNumber = /\[(.*?)\]/.exec(infoPresentation.slice(-1)[0])?.[1] || "unavailable"
+        return {command: "", title: `Latest version: ${latestVersionNumber}`
+        }
       }))
 
       return (await infoPresentations)
-      .filter(e=> e.title !== "")
-      .map((infoPresentation,idx)=>new vscode.CodeLens(new vscode.Range(idx, 0, idx, 0), infoPresentation))
-  
+      .reduce((acc: Array<vscode.CodeLens>,curr,currIdx)=>{
+          const [infoPresentation, idx] = [curr,currIdx]
+          return infoPresentation.title !== "" ? acc.concat(
+            (new vscode.CodeLens(new vscode.Range(idx, 0, idx, 0), infoPresentation))
+          ) : acc
+      },[])
+
     }
   }
 
 export function activate(_: vscode.ExtensionContext) {
-    vscode.languages.registerCodeLensProvider('pip-requirements', new MyCodeLensProvider()),
+    vscode.languages.registerCodeLensProvider('pip-requirements', new CodeLensProvider()),
     vscode.languages.registerHoverProvider('pip-requirements', { provideHover })
 }
 
