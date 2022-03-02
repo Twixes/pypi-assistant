@@ -74,7 +74,7 @@ async function provideHover(document: vscode.TextDocument, position: vscode.Posi
     if (requirement === null) return new vscode.Hover('')
     let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
     if (infoPresentation === undefined) return new vscode.Hover('')
-    return new vscode.Hover(infoPresentation.slice(0,-1).join("\n\n").replace('{id_raw}', requirement.id_raw))
+    return new vscode.Hover(infoPresentation.join("\n\n").replace('{id_raw}', requirement.id_raw))
 }
 
 class CodeLensProvider implements vscode.CodeLensProvider {
@@ -92,18 +92,15 @@ class CodeLensProvider implements vscode.CodeLensProvider {
         if (infoPresentation === undefined) {
           const [status, info]: PackageInfoRequest = await fetchPackageInfo(requirement)
           if (status === 200) infoPresentation = presentPackageInfo(info!)
-          else if (status === 404) infoPresentation = [`{id_raw} is not available in PyPI`]
+          else if (status === 404) infoPresentation = undefined // {id_raw} is not available in PyPI
 
           if (infoPresentation) infoPresentationCache.set(requirement.id, infoPresentation)
-          else infoPresentation = [linkify(
-              `could not fetch ${requirement.id_raw} information from PyPI`,
-              `https://pypi.org/project/${requirement.id_raw}/`
-          )]
+          else infoPresentation = [""] // could not fetch ${requirement.id_raw} information from PyPI
         }
 
         // Extract version number from square brackets
-        const latestVersionNumber = /\[(.*?)\]/.exec(infoPresentation.slice(-1)[0])?.[1] || "unavailable"
-        return {command: "", title: `Latest version: ${latestVersionNumber}`
+        const latestVersionNumber = /\[(.*?)\]/.exec(infoPresentation.slice(-1)[0])?.[1]
+        return {command: "", title: latestVersionNumber ? `Latest version: ${latestVersionNumber}` : ""
         }
       }))
 
