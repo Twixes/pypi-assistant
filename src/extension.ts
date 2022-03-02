@@ -82,26 +82,23 @@ class CodeLensProvider implements vscode.CodeLensProvider {
 
       const lineCount: number = document.lineCount;
 
-      const requirements: Array<PackageRequirement|null> = 
-      [...Array(lineCount).keys()]
-      .map(lineNumber => extractPackageRequirement(document.lineAt(lineNumber)))
-      
-      const infoPresentations: Promise<vscode.Command[]> = Promise.all(requirements.map(async (requirement)=>{
-        if(requirement === null) return { command: "", title: ""}
+      const infoPresentations: Promise<vscode.Command[]> = Promise.all([...Array(lineCount).keys()]
+        .map(async (lineNumber)=>{
+        const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(lineNumber))
+        if (requirement === null) return { command: "", title: ""}
         let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
         if (infoPresentation === undefined) {
           const [status, info]: PackageInfoRequest = await fetchPackageInfo(requirement)
           if (status === 200) infoPresentation = presentPackageInfo(info!)
-          else if (status === 404) infoPresentation = undefined // {id_raw} is not available in PyPI
+          else {/* {id_raw} is not available in PyPI */} 
 
           if (infoPresentation) infoPresentationCache.set(requirement.id, infoPresentation)
-          else infoPresentation = [""] // could not fetch ${requirement.id_raw} information from PyPI
+          else return { command: "", title: ""} // could not fetch ${requirement.id_raw} information from PyPI
         }
 
         // Extract version number from square brackets
         const latestVersionNumber = /\[(.*?)\]/.exec(infoPresentation.slice(-1)[0])?.[1]
-        return {command: "", title: latestVersionNumber ? `Latest version: ${latestVersionNumber}` : ""
-        }
+        return {command: "", title: latestVersionNumber ? `Latest version: ${latestVersionNumber}` : ""}
       }))
 
       return (await infoPresentations)
