@@ -8,6 +8,7 @@ interface PackageRequirement {
     constraints: [string, string][]
 }
 
+/** `info` field as returned by PyPI. */
 interface PackageInfo {
     name: string
     summary: string
@@ -18,6 +19,12 @@ interface PackageInfo {
     license: string
     version: string
     release_url: string
+}
+
+/* Partial model of the package response returned by PyPI. */
+interface Package {
+    info: PackageInfo
+    releases: Record<string, { upload_time: string }[]>
 }
 
 type PackageInfoRequest = [number | null, PackageInfo | null]
@@ -47,8 +54,9 @@ function extractPackageRequirement(line: vscode.TextLine): PackageRequirement | 
 async function fetchPackageInfo(requirement: PackageRequirement): Promise<PackageInfoRequest> {
     try {
         const response: Response = await fetch(`https://pypi.org/pypi/${requirement.id}/json`)
+        const responsePackage: Package = await response.json()
         let info: PackageInfo | null = null
-        if (response.ok) info = (await response.json() as { info: PackageInfo}).info
+        if (response.ok) info = responsePackage.info
         return [response.status, info]
     } catch (e) {
         return [null, null]
