@@ -79,8 +79,7 @@ async function provideHover(document: vscode.TextDocument, position: vscode.Posi
 
 class CodeLensProvider implements vscode.CodeLensProvider {
     async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
-
-      await new Promise(resolve=>setTimeout(resolve,1000)) // Wait 1 second
+      await new Promise(resolve=>setTimeout(resolve, 500)) // Debouncing to avoid requests on every key press
 
       const lineCount: number = document.lineCount;
 
