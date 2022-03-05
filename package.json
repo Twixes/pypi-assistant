@@ -29,6 +29,7 @@
     "contributes": {},
     "scripts": {
         "vscode:prepublish": "npm run compile",
+        "prepare": "husky install",
         "compile": "tsc -p ./",
         "format": "prettier --write .",
         "lint": "eslint src --ext ts",
@@ -52,6 +53,8 @@
         "vscode-test": "^1.6.1"
     },
     "dependencies": {
+        "husky": "^7.0.4",
+        "lint-staged": "^12.3.5",
         "node-fetch": "^2.6.7"
     },
     "extensionDependencies": [
@@ -65,5 +68,9 @@
         "type": "git",
         "url": "https://github.com/Twixes/pypi-assistant.git"
     },
-    "homepage": "https://github.com/Twixes/pypi-assistant/blob/master/README.md"
+    "homepage": "https://github.com/Twixes/pypi-assistant/blob/master/README.md",
+    "lint-staged": {
+        "*": "prettier --write",
+        "*.ts": "eslint --fix"
+    }
 }
