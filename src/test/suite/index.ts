@@ -5,7 +5,7 @@ import * as glob from 'glob'
 export function run(): Promise<void> {
     const mocha = new Mocha({
         ui: 'tdd',
-        color: true
+        color: true,
     })
     const testsRoot = path.resolve(__dirname, '..')
     return new Promise((c, e) => {
@@ -13,9 +13,9 @@ export function run(): Promise<void> {
             if (err) {
                 return e(err)
             }
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)))
+            files.forEach((f) => mocha.addFile(path.resolve(testsRoot, f)))
             try {
-                mocha.run(failures => {
+                mocha.run((failures) => {
                     if (failures > 0) {
                         e(new Error(`${failures} tests failed.`))
                     } else {
