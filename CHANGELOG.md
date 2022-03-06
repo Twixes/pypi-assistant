@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.1.2]
+
+### Changed
+
+-   The extension is now bundled into a single file. This gets us closer to working in online VS Code environments, such as GitHub Codespaces.
+
+## [1.1.0]
+
+### Added
+
+-   CodeLens support: latest package version shown directly in the editor! Enabled by default, but can be disabled in VS Code settings.
+
 ## [1.0.4]
 
 ### Changed
