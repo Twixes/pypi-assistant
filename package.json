@@ -71,7 +71,7 @@
     },
     "homepage": "https://github.com/Twixes/pypi-assistant/blob/master/README.md",
     "lint-staged": {
-        "*": "prettier --write",
+        "*.{ts,yml,yaml,json,md}": "prettier --write",
         "*.ts": "eslint --fix"
     }
 }
