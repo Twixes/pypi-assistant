@@ -26,7 +26,18 @@
         "onLanguage:pip-requirements"
     ],
     "main": "./out/extension.js",
-    "contributes": {},
+    "contributes": {
+        "configuration": {
+            "title": "PyPI Assistant",
+            "properties": {
+                "pypiAssistant.codeLens": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable/disable latest package version CodeLens in `pip-requirements` files."
+                }
+            }
+        }
+    },
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "prepare": "husky install",

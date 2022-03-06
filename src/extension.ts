@@ -105,10 +105,12 @@ class PyPICodeLens extends vscode.CodeLens {
 class PyPICodeLensProvider implements vscode.CodeLensProvider {
     provideCodeLenses(document: vscode.TextDocument): PyPICodeLens[] {
         const codeLenses: PyPICodeLens[] = []
-        for (let line = 0; line < document.lineCount; line++) {
-            const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(line))
-            if (!requirement) continue
-            codeLenses.push(new PyPICodeLens(new vscode.Range(line, 0, line, 0), requirement))
+        if (vscode.workspace.getConfiguration('pypiAssistant').get('codeLens')) {
+            for (let line = 0; line < document.lineCount; line++) {
+                const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(line))
+                if (!requirement) continue
+                codeLenses.push(new PyPICodeLens(new vscode.Range(line, 0, line, 0), requirement))
+            }
         }
         return codeLenses
     }
