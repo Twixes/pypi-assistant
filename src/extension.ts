@@ -3,129 +3,131 @@ import fetch, { Response } from 'node-fetch'
 
 interface PackageRequirement {
     id: string
-    id_raw: string
     extras: string[]
     constraints: [string, string][]
 }
 
-/** `info` field as returned by PyPI. */
-interface PackageInfo {
-    name: string
-    summary: string
-    home_page: string
-    author: string
-    author_email: string
-    package_url: string
-    license: string
-    version: string
-    release_url: string
-}
-
 /* Partial model of the package response returned by PyPI. */
-interface Package {
-    info: PackageInfo
+interface PackageMetadata {
+    info: {
+        name: string
+        summary: string
+        home_page: string
+        author: string
+        author_email: string
+        package_url: string
+        license: string
+        version: string
+        release_url: string
+    }
     releases: Record<string, { upload_time: string }[]>
 }
 
-type PackageInfoRequest = [number | null, PackageInfo | null]
-
-const deconstructionRe: RegExp =
+const deconstructionRegex: RegExp =
     /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==?|~=?|>=?|<=?)([\w\d._-]*)(?:,(?:(==?|~=?|>=?|<=?)([\w\d._-]*))?)*)?$/i
 
-let infoPresentationCache: Map<string, Array<string>> = new Map()
+let metadataCache: Map<string, PackageMetadata | null> = new Map()
 
 function linkify(text: string, link?: string): string {
     return link ? `[${text}](${link})` : text
 }
 
 function extractPackageRequirement(line: vscode.TextLine): PackageRequirement | null {
-    const match = line.text.replace(/(?:\s*(?:(?=#).*)?$|\s+)/g, '').match(deconstructionRe)
+    const match = line.text.replace(/(?:\s*(?:(?=#).*)?$|\s+)/g, '').match(deconstructionRegex)
     if (match === null) return null
     let constraints: [string, string][] = []
     if (match[4]) constraints.push([match[3], match[4]])
     if (match[6]) constraints.push([match[5], match[6]])
     return {
         id: match[1].toLowerCase().replace(/[._]/g, '-'),
-        id_raw: match[1],
         extras: match[2] ? match[2].split(',') : [],
         constraints: constraints,
     }
 }
 
-async function fetchPackageInfo(requirement: PackageRequirement): Promise<PackageInfoRequest> {
-    try {
-        const response: Response = await fetch(`https://pypi.org/pypi/${requirement.id}/json`)
-        const responsePackage: Package = await response.json()
-        let info: PackageInfo | null = null
-        if (response.ok) info = responsePackage.info
-        return [response.status, info]
-    } catch (e) {
-        return [null, null]
+/** Fetching package metadata with a caching layer. */
+async function fetchPackageMetadata(requirement: PackageRequirement): Promise<PackageMetadata | null> {
+    if (metadataCache.has(requirement.id)) return metadataCache.get(requirement.id)!
+    const response: Response = await fetch(`https://pypi.org/pypi/${requirement.id}/json`)
+    let metadata: PackageMetadata | null
+    switch (response.status) {
+        case 200:
+            metadata = await response.json()
+            break
+        case 404:
+            metadata = null
+            break
+        default:
+            throw new Error(`Unexpected response from PyPI: status ${response.status}`)
+    }
+    metadataCache.set(requirement.id, metadata)
+    return metadata
+}
+
+class PyPIHoverProvider implements vscode.HoverProvider {
+    async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
+        const requirement = extractPackageRequirement(document.lineAt(position.line))
+        if (requirement === null) return null
+        const metadata = await fetchPackageMetadata(requirement)
+        if (metadata === null) return null
+        return new vscode.Hover(this.formatPackageMetadata(metadata))
+    }
+
+    formatPackageMetadata(metadata: PackageMetadata): string {
+        const { info, releases } = metadata
+        const summarySubPart: string = info.summary ? ` – ${linkify(info.summary, info.home_page)}` : ''
+        const metadataPresentation: string[] = [`**${linkify(info.name, info.package_url)}${summarySubPart}**`]
+        const emailSubpart: string = info.author_email ? ` (${info.author_email})` : ''
+        const authorSubpart: string = info.author && info.author_email ? `By ${info.author}${emailSubpart}.` : ''
+        const licenseSubpart: string = info.license
+            ? ` ${info.license}${!info.license.match(/\blicen[cs]e/) ? ' license' : ''}.`
+            : ''
+        if (authorSubpart || licenseSubpart) metadataPresentation.push(`${authorSubpart}${licenseSubpart}`)
+        metadataPresentation.push(`Latest version: ${linkify(info.version, info.release_url)}.`)
+        return metadataPresentation.join('\n\n')
     }
 }
 
-function presentPackageInfo(info: PackageInfo): string[] {
-    const summarySubPart: string = info.summary ? ` – ${linkify(info.summary, info.home_page)}` : ''
-    const headPart: string = `**${linkify(info.name, info.package_url)}${summarySubPart}**`
-    const emailSubpart: string = info.author_email ? ` (${info.author_email})` : ''
-    const authorSubpart: string = info.author && info.author_email ? `By ${info.author}${emailSubpart}.` : ''
-    const licenseSubpart: string = info.license ? ` ${info.license.replace(/ licen[cs]e/gi, '')} licensed.` : ''
-    const versionPart: string = `Latest version: ${linkify(info.version, info.release_url)}.`
-    const infoPresentation: Array<string> = [headPart, authorSubpart + licenseSubpart, versionPart].filter(Boolean)
+class PyPICodeLens extends vscode.CodeLens {
+    requirement: PackageRequirement
 
-    return infoPresentation
+    constructor(range: vscode.Range, requirement: PackageRequirement) {
+        super(range)
+        this.requirement = requirement
+    }
 }
 
-async function provideHover(document: vscode.TextDocument, position: vscode.Position) {
-    const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(position.line))
-    if (requirement === null) return new vscode.Hover('')
-    let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
-    if (infoPresentation === undefined) return new vscode.Hover('')
-    return new vscode.Hover(infoPresentation.join('\n\n').replace('{id_raw}', requirement.id_raw))
-}
+class PyPICodeLensProvider implements vscode.CodeLensProvider {
+    provideCodeLenses(document: vscode.TextDocument): PyPICodeLens[] {
+        const codeLenses: PyPICodeLens[] = []
+        for (let line = 0; line < document.lineCount; line++) {
+            const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(line))
+            if (!requirement) continue
+            codeLenses.push(new PyPICodeLens(new vscode.Range(line, 0, line, 0), requirement))
+        }
+        return codeLenses
+    }
 
-class CodeLensProvider implements vscode.CodeLensProvider {
-    async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[]> {
-        await new Promise((resolve) => setTimeout(resolve, 500)) // Debouncing to avoid requests on every key press
+    async resolveCodeLens(codeLens: PyPICodeLens): Promise<vscode.CodeLens | null> {
+        const metadata = await fetchPackageMetadata(codeLens.requirement)
+        if (metadata === null) return null
+        return new vscode.CodeLens(codeLens.range, {
+            command: '',
+            title: this.formatPackageMetadata(metadata),
+        })
+    }
 
-        const lineCount: number = document.lineCount
-
-        const infoPresentations: Promise<vscode.Command[]> = Promise.all(
-            [...Array(lineCount).keys()].map(async (lineNumber) => {
-                const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(lineNumber))
-                if (requirement === null) return { command: '', title: '' }
-                let infoPresentation: Array<string> | undefined = infoPresentationCache.get(requirement.id)
-                if (infoPresentation === undefined) {
-                    const [status, info]: PackageInfoRequest = await fetchPackageInfo(requirement)
-                    if (status === 200) infoPresentation = presentPackageInfo(info!)
-                    else {
-                        /* {id_raw} is not available in PyPI */
-                    }
-
-                    if (infoPresentation) infoPresentationCache.set(requirement.id, infoPresentation)
-                    else return { command: '', title: '' } // could not fetch ${requirement.id_raw} information from PyPI
-                }
-
-                // Extract version number from square brackets
-                const latestVersionNumber = /\[(.*?)\]/.exec(infoPresentation.slice(-1)[0])?.[1]
-                return { command: '', title: latestVersionNumber ? `Latest version: ${latestVersionNumber}` : '' }
-            })
-        )
-
-        return (await infoPresentations).reduce((acc: Array<vscode.CodeLens>, curr, currIdx) => {
-            const [infoPresentation, idx] = [curr, currIdx]
-            return infoPresentation.title !== ''
-                ? acc.concat(new vscode.CodeLens(new vscode.Range(idx, 0, idx, 0), infoPresentation))
-                : acc
-        }, [])
+    formatPackageMetadata(metadata: PackageMetadata): string {
+        const { info } = metadata
+        return `Latest version: ${info.version}`
     }
 }
 
 export function activate(_: vscode.ExtensionContext) {
-    vscode.languages.registerCodeLensProvider('pip-requirements', new CodeLensProvider())
-    vscode.languages.registerHoverProvider('pip-requirements', { provideHover })
+    vscode.languages.registerCodeLensProvider('pip-requirements', new PyPICodeLensProvider())
+    vscode.languages.registerHoverProvider('pip-requirements', new PyPIHoverProvider())
 }
 
 export function deactivate() {
-    infoPresentationCache.clear()
+    metadataCache.clear()
 }
