@@ -1,7 +1,6 @@
-import * as assert from 'assert'
+import assert from 'assert'
 
-import * as vscode from 'vscode'
-import * as pypiAssistant from '../../extension'
+import vscode from 'vscode'
 
 suite('Extension Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.')
