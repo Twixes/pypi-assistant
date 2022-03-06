@@ -1,5 +1,6 @@
 import * as vscode from 'vscode'
 import fetch, { Response } from 'node-fetch'
+import * as dayjs from 'dayjs'
 
 interface PackageRequirement {
     id: string
@@ -83,7 +84,11 @@ class PyPIHoverProvider implements vscode.HoverProvider {
             ? ` ${info.license}${!info.license.match(/\blicen[cs]e/) ? ' license' : ''}.`
             : ''
         if (authorSubpart || licenseSubpart) metadataPresentation.push(`${authorSubpart}${licenseSubpart}`)
-        metadataPresentation.push(`Latest version: ${linkify(info.version, info.release_url)}.`)
+        metadataPresentation.push(
+            `Latest version: ${linkify(info.version, info.release_url)} (released on ${dayjs(
+                releases[info.version][0].upload_time
+            ).format('D MMMM YYYY')}).`
+        )
         return metadataPresentation.join('\n\n')
     }
 }

@@ -53,6 +53,7 @@
         "vscode-test": "^1.6.1"
     },
     "dependencies": {
+        "dayjs": "^1.10.8",
         "husky": "^7.0.4",
         "lint-staged": "^12.3.5",
         "node-fetch": "^2.6.7"
