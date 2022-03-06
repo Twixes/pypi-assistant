@@ -79,11 +79,11 @@ class PyPIHoverProvider implements vscode.HoverProvider {
         const summarySubPart: string = info.summary ? ` – ${linkify(info.summary, info.home_page)}` : ''
         const metadataPresentation: string[] = [`**${linkify(info.name, info.package_url)}${summarySubPart}**`]
         const emailSubpart: string = info.author_email ? ` (${info.author_email})` : ''
-        const authorSubpart: string = info.author && info.author_email ? `By ${info.author}${emailSubpart}.` : ''
-        const licenseSubpart: string = info.license
-            ? ` ${info.license}${!info.license.match(/\blicen[cs]e/) ? ' license' : ''}.`
-            : ''
-        if (authorSubpart || licenseSubpart) metadataPresentation.push(`${authorSubpart}${licenseSubpart}`)
+        const authorSubpart: string | null =
+            info.author && info.author_email ? `By ${info.author}${emailSubpart}.` : null
+        const licenseSubpart: string | null = info.license ? `License: ${info.license}.` : null
+        if (authorSubpart || licenseSubpart)
+            metadataPresentation.push([authorSubpart, licenseSubpart].filter(Boolean).join(' '))
         metadataPresentation.push(
             `Latest version: ${linkify(info.version, info.release_url)} (released on ${dayjs(
                 releases[info.version][0].upload_time
