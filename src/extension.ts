@@ -1,6 +1,6 @@
-import * as vscode from 'vscode'
+import vscode from 'vscode'
 import fetch, { Response } from 'node-fetch'
-import * as dayjs from 'dayjs'
+import dayjs from 'dayjs'
 
 interface PackageRequirement {
     id: string

@@ -25,7 +25,7 @@
     "activationEvents": [
         "onLanguage:pip-requirements"
     ],
-    "main": "./out/extension.js",
+    "main": "./out/main.js",
     "contributes": {
         "configuration": {
             "title": "PyPI Assistant",
@@ -39,8 +39,11 @@
         }
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile",
         "prepare": "husky install",
+        "vscode:prepublish": "npm run esbuild-base -- --minify",
+        "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
+        "esbuild": "npm run esbuild-base -- --sourcemap",
+        "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
         "compile": "tsc -p ./",
         "format": "prettier --write .",
         "lint": "eslint src --ext ts",
@@ -56,6 +59,7 @@
         "@types/vscode": "^1.45.0",
         "@typescript-eslint/eslint-plugin": "^5.13.0",
         "@typescript-eslint/parser": "^5.13.0",
+        "esbuild": "^0.14.25",
         "eslint": "^8.10.0",
         "glob": "^7.2.0",
         "mocha": "^9.2.1",
