@@ -117,22 +117,59 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider {
 
     async resolveCodeLens(codeLens: PyPICodeLens): Promise<vscode.CodeLens | null> {
         const metadata = await fetchPackageMetadata(codeLens.requirement)
-        if (metadata === null) return null
+        if (metadata === null) return new vscode.CodeLens(codeLens.range, { command: '', title: 'package not found' })
+
+        const lineNumber = codeLens.range.start.line
+        const currentVersion = codeLens.requirement.constraints?.[0]?.[1]
+        const latestVersion = metadata?.info?.version
+
+        const hasCurrentVersion = currentVersion !== undefined
+        const hasLatestVersion = latestVersion !== undefined
+        const isLatestVersion = hasCurrentVersion && hasLatestVersion && currentVersion === latestVersion
+
+        /* Offer option to bump package only when package version is not latest */
         return new vscode.CodeLens(codeLens.range, {
-            command: '',
-            title: this.formatPackageMetadata(metadata),
+            arguments: [lineNumber, currentVersion, latestVersion],
+            command: !isLatestVersion ? 'pypiAssistant.bumpPackageVersion' : '',
+            title: this.formatPackageMetadata(metadata, isLatestVersion),
         })
     }
 
-    formatPackageMetadata(metadata: PackageMetadata): string {
+    formatPackageMetadata(metadata: PackageMetadata, isLatestVersion: boolean): string {
         const { info } = metadata
-        return `Latest version: ${info.version}`
+
+        return isLatestVersion ? 'latest' : `latest: ↑ ${info.version}`
     }
 }
 
-export function activate(_: vscode.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext) {
     vscode.languages.registerCodeLensProvider('pip-requirements', new PyPICodeLensProvider())
     vscode.languages.registerHoverProvider('pip-requirements', new PyPIHoverProvider())
+
+    const command = 'pypiAssistant.bumpPackageVersion'
+
+    const commandHandler = (lineNumber: number, currentVersion: string, latestVersion: string) => {
+        const editor = vscode.window.activeTextEditor
+        const document = editor?.document
+
+        if (editor !== undefined && document !== undefined) {
+            editor.edit((editBuilder) => {
+                const line = document.lineAt(lineNumber)
+                if (currentVersion !== latestVersion) {
+                    const startIdx = line.text.indexOf(currentVersion)
+                    const endIdx = startIdx + currentVersion.length
+
+                    const startposition = new vscode.Position(lineNumber, startIdx)
+                    const endingposition = new vscode.Position(lineNumber, endIdx)
+                    const range = new vscode.Range(startposition, endingposition)
+
+                    editBuilder.replace(range, latestVersion)
+                }
+            })
+        }
+    }
+
+    context.subscriptions.push(vscode.commands.registerCommand(command, commandHandler))
 }
 
 export function deactivate() {
