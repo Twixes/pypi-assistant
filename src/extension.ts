@@ -120,6 +120,7 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider {
         if (metadata === null) return new vscode.CodeLens(codeLens.range, { command: '', title: 'package not found' })
 
         const lineNumber = codeLens.range.start.line
+        const constraintType = codeLens.requirement.constraints?.[0]?.[0]
         const currentVersion = codeLens.requirement.constraints?.[0]?.[1]
         const latestVersion = metadata?.info?.version
 
@@ -127,9 +128,11 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider {
         const hasLatestVersion = latestVersion !== undefined
         const isLatestVersion = hasCurrentVersion && hasLatestVersion && currentVersion === latestVersion
 
+        const id = codeLens.requirement.id
+
         /* Offer option to bump package only when package version is not latest */
         return new vscode.CodeLens(codeLens.range, {
-            arguments: [lineNumber, currentVersion, latestVersion],
+            arguments: [lineNumber, currentVersion, latestVersion, constraintType, id],
             command: !isLatestVersion ? 'pypiAssistant.bumpPackageVersion' : '',
             title: this.formatPackageMetadata(metadata, isLatestVersion),
         })
@@ -146,9 +149,15 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.languages.registerCodeLensProvider('pip-requirements', new PyPICodeLensProvider())
     vscode.languages.registerHoverProvider('pip-requirements', new PyPIHoverProvider())
 
-    const command = 'pypiAssistant.bumpPackageVersion'
+    const bumpPackageCommand = 'pypiAssistant.bumpPackageVersion'
 
-    const commandHandler = (lineNumber: number, currentVersion: string, latestVersion: string) => {
+    const bumpPackageCommandHandler = (
+        lineNumber: number,
+        currentVersion: string,
+        latestVersion: string,
+        constraintType: string,
+        id: string
+    ) => {
         const editor = vscode.window.activeTextEditor
         const document = editor?.document
 
@@ -156,20 +165,28 @@ export function activate(context: vscode.ExtensionContext) {
             editor.edit((editBuilder) => {
                 const line = document.lineAt(lineNumber)
                 if (currentVersion !== latestVersion) {
-                    const startIdx = line.text.indexOf(currentVersion)
-                    const endIdx = startIdx + currentVersion.length
-
+                    let startIdx, endIdx
+                    if (constraintType === undefined) {
+                        startIdx = line.text.indexOf(id) + id.length
+                        endIdx = startIdx
+                    } else {
+                        const firstIdxAfterConstraintType = line.text.indexOf(constraintType) + constraintType.length
+                        startIdx =
+                            firstIdxAfterConstraintType +
+                            line.text.slice(firstIdxAfterConstraintType).indexOf(currentVersion)
+                        endIdx = startIdx + currentVersion.length
+                    }
                     const startposition = new vscode.Position(lineNumber, startIdx)
                     const endingposition = new vscode.Position(lineNumber, endIdx)
                     const range = new vscode.Range(startposition, endingposition)
 
-                    editBuilder.replace(range, latestVersion)
+                    editBuilder.replace(range, constraintType === undefined ? '==' + latestVersion : latestVersion)
                 }
             })
         }
     }
 
-    context.subscriptions.push(vscode.commands.registerCommand(command, commandHandler))
+    context.subscriptions.push(vscode.commands.registerCommand(bumpPackageCommand, bumpPackageCommandHandler))
 }
 
 export function deactivate() {
