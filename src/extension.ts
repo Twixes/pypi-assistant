@@ -25,7 +25,7 @@ interface PackageMetadata {
 }
 
 const deconstructionRegex: RegExp =
-    /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==?|~=?|>=?|<=?)([\w\d._-]*)(?:,(?:(==?|~=?|>=?|<=?)([\w\d._-]*))?)*)?$/i
+    /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==?|~=?|>=?|<=?)([\w\d._*-]*)(?:,(?:(==?|~=?|>=?|<=?)([\w\d._*-]*))?)*)?$/i
 
 let metadataCache: Map<string, PackageMetadata | null> = new Map()
 
