@@ -50,4 +50,27 @@ describe('extractPackageRequirement', () => {
             constraints: [],
         })
     })
+
+    it('should extract package req with wildcard AND greater or equal version', () => {
+        const req = extractPackageRequirement('bcrypt==4.0.*,>=4.0.3')
+
+        expect(req).toStrictEqual({
+            id: 'bcrypt',
+            extras: [],
+            constraints: [
+                ['==', '4.0.*'],
+                ['>=', '4.0.3'],
+            ],
+        })
+    })
+
+    it('should extract package req with wildcard', () => {
+        const req = extractPackageRequirement('bcrypt==4.0.*')
+
+        expect(req).toStrictEqual({
+            id: 'bcrypt',
+            extras: [],
+            constraints: [['==', '4.0.*']],
+        })
+    })
 })
