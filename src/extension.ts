@@ -1,15 +1,10 @@
 import vscode from 'vscode'
 import fetch, { Response } from 'node-fetch'
 import dayjs from 'dayjs'
-
-interface PackageRequirement {
-    id: string
-    extras: string[]
-    constraints: [string, string][]
-}
+import { extractPackageRequirement, PackageRequirement } from './parsing'
 
 /* Partial model of the package response returned by PyPI. */
-interface PackageMetadata {
+export interface PackageMetadata {
     info: {
         name: string
         summary: string
@@ -24,26 +19,10 @@ interface PackageMetadata {
     releases: Record<string, { upload_time: string }[]>
 }
 
-const deconstructionRegex: RegExp =
-    /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==?|~=?|>=?|<=?)([\w\d._*-]*)(?:,(?:(==?|~=?|>=?|<=?)([\w\d._*-]*))?)*)?$/i
-
 let metadataCache: Map<string, PackageMetadata | null> = new Map()
 
 function linkify(text: string, link?: string): string {
     return link ? `[${text}](${link})` : text
-}
-
-function extractPackageRequirement(line: vscode.TextLine): PackageRequirement | null {
-    const match = line.text.replace(/(?:\s*(?:(?=#).*)?$|\s+)/g, '').match(deconstructionRegex)
-    if (match === null) return null
-    let constraints: [string, string][] = []
-    if (match[4]) constraints.push([match[3], match[4]])
-    if (match[6]) constraints.push([match[5], match[6]])
-    return {
-        id: match[1].toLowerCase().replace(/[._]/g, '-'),
-        extras: match[2] ? match[2].split(',') : [],
-        constraints: constraints,
-    }
 }
 
 /** Fetching package metadata with a caching layer. */
@@ -67,7 +46,7 @@ async function fetchPackageMetadata(requirement: PackageRequirement): Promise<Pa
 
 class PyPIHoverProvider implements vscode.HoverProvider {
     async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
-        const requirement = extractPackageRequirement(document.lineAt(position.line))
+        const requirement = extractPackageRequirement(document.lineAt(position.line).text)
         if (requirement === null) return null
         const metadata = await fetchPackageMetadata(requirement)
         if (metadata === null) return null
@@ -107,7 +86,7 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider {
         const codeLenses: PyPICodeLens[] = []
         if (vscode.workspace.getConfiguration('pypiAssistant').get('codeLens')) {
             for (let line = 0; line < document.lineCount; line++) {
-                const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(line))
+                const requirement: PackageRequirement | null = extractPackageRequirement(document.lineAt(line).text)
                 if (!requirement) continue
                 codeLenses.push(new PyPICodeLens(new vscode.Range(line, 0, line, 0), requirement))
             }
