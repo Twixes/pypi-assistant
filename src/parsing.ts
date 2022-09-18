@@ -5,7 +5,7 @@ export interface PackageRequirement {
 }
 
 const deconstructionRegex: RegExp =
-    /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==?|~=?|>=?|<=?)([\w\d._-]*)(?:,(?:(==?|~=?|>=?|<=?)([\w\d._-]*))?)*)?$/i
+    /^([\w\d._-]+)(\[[\w\d,._-]*\])?(?:(==?|~=?|>=?|<=?)([\w\d._*-]*)(?:,(?:(==?|~=?|>=?|<=?)([\w\d._*-]*))?)*)?$/i
 
 export function extractPackageRequirement(lineText: string): PackageRequirement | null {
     const match = lineText.replace(/(?:\s*(?:(?=#).*)?$|\s+)/g, '').match(deconstructionRegex)
