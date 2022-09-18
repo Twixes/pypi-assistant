@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.1.3]
+
+### Fixed
+
+-   Version specs with wildcards, such as `bcrypt==4.0.*`, are now properly recognized. Contributed by @a-was. Thanks!
+
 ## [1.1.2]
 
 ### Changed
@@ -10,7 +16,7 @@
 
 ### Added
 
--   CodeLens support: latest package version shown directly in the editor! Enabled by default, but can be disabled in VS Code settings.
+-   CodeLens support: latest package version shown directly in the editor! Enabled by default, but can be disabled in VS Code settings. Contributed by @elliotwutingfeng. Thanks!
 
 ## [1.0.4]
 
