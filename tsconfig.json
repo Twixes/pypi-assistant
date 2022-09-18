@@ -11,5 +11,5 @@
         "noImplicitReturns": true,
         "noUnusedParameters": true
     },
-    "exclude": ["node_modules", ".vscode-test"]
+    "exclude": ["node_modules", ".vscode-test", "src/**.test.ts"]
 }
