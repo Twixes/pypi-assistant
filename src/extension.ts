@@ -81,6 +81,10 @@ class PyPICodeLens extends vscode.CodeLens {
     }
 }
 
+function identifyCurrentVersion(constraints: [string, string][]) {
+    return constraints?.[0]?.[1]
+}
+
 class PyPICodeLensProvider implements vscode.CodeLensProvider {
     provideCodeLenses(document: vscode.TextDocument): PyPICodeLens[] {
         const codeLenses: PyPICodeLens[] = []
@@ -99,8 +103,10 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider {
         if (metadata === null) return new vscode.CodeLens(codeLens.range, { command: '', title: 'package not found' })
 
         const lineNumber = codeLens.range.start.line
-        const constraintType = codeLens.requirement.constraints?.[0]?.[0]
-        const currentVersion = codeLens.requirement.constraints?.[0]?.[1]
+        const versionClauseType = codeLens.requirement.constraints?.[0]?.[0]
+        // Based on specified constraints, identify latest possible currentVersion
+
+        const currentVersion = identifyCurrentVersion(codeLens.requirement.constraints)
         const latestVersion = metadata?.info?.version
 
         const hasCurrentVersion = currentVersion !== undefined
@@ -111,7 +117,7 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider {
 
         /* Offer option to bump package only when package version is not latest */
         return new vscode.CodeLens(codeLens.range, {
-            arguments: [lineNumber, currentVersion, latestVersion, constraintType, id],
+            arguments: [lineNumber, currentVersion, latestVersion, versionClauseType, id],
             command: !isLatestVersion ? 'pypiAssistant.bumpPackageVersion' : '',
             title: this.formatPackageMetadata(metadata, isLatestVersion),
         })
@@ -134,7 +140,7 @@ export function activate(context: vscode.ExtensionContext) {
         lineNumber: number,
         currentVersion: string,
         latestVersion: string,
-        constraintType: string,
+        versionClauseType: string,
         id: string
     ) => {
         const editor = vscode.window.activeTextEditor
@@ -145,21 +151,22 @@ export function activate(context: vscode.ExtensionContext) {
                 const line = document.lineAt(lineNumber)
                 if (currentVersion !== latestVersion) {
                     let startIdx, endIdx
-                    if (constraintType === undefined) {
+                    if (versionClauseType === undefined) {
                         startIdx = line.text.indexOf(id) + id.length
                         endIdx = startIdx
                     } else {
-                        const firstIdxAfterConstraintType = line.text.indexOf(constraintType) + constraintType.length
+                        const firstIdxAfterversionClauseType =
+                            line.text.indexOf(versionClauseType) + versionClauseType.length
                         startIdx =
-                            firstIdxAfterConstraintType +
-                            line.text.slice(firstIdxAfterConstraintType).indexOf(currentVersion)
+                            firstIdxAfterversionClauseType +
+                            line.text.slice(firstIdxAfterversionClauseType).indexOf(currentVersion)
                         endIdx = startIdx + currentVersion.length
                     }
                     const startposition = new vscode.Position(lineNumber, startIdx)
                     const endingposition = new vscode.Position(lineNumber, endIdx)
                     const range = new vscode.Range(startposition, endingposition)
 
-                    editBuilder.replace(range, constraintType === undefined ? '==' + latestVersion : latestVersion)
+                    editBuilder.replace(range, versionClauseType === undefined ? '==' + latestVersion : latestVersion)
                 }
             })
         }
