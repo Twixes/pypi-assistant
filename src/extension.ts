@@ -1,5 +1,5 @@
 import vscode from 'vscode'
-import fetch, { Response } from 'node-fetch'
+import fetch, { FetchError, Response } from 'node-fetch'
 import dayjs from 'dayjs'
 import { extractPackageRequirement, PackageRequirement } from './parsing'
 
@@ -26,19 +26,24 @@ function linkify(text: string, link?: string): string {
 }
 
 /** Fetching package metadata with a caching layer. */
-async function fetchPackageMetadata(requirement: PackageRequirement): Promise<PackageMetadata | null> {
+async function fetchPackageMetadata(requirement: PackageRequirement): Promise<PackageMetadata> {
     if (metadataCache.has(requirement.id)) return metadataCache.get(requirement.id)!
-    const response: Response = await fetch(`https://pypi.org/pypi/${requirement.id}/json`)
-    let metadata: PackageMetadata | null
+    let response: Response
+    try {
+        response = await fetch(`https://pypi.org/pypi/${requirement.id}/json`)
+    } catch (e) {
+        const reason = e instanceof FetchError ? e.code : (e as Error).message
+        throw new Error(`Could not connect to PyPI: ${reason}`)
+    }
+    let metadata: PackageMetadata
     switch (response.status) {
         case 200:
             metadata = await response.json()
             break
         case 404:
-            metadata = null
-            break
+            throw new Error(`Package not found in PyPI`)
         default:
-            throw new Error(`Unexpected response from PyPI: status ${response.status}`)
+            throw new Error(`Unexpected ${response.status} response from PyPI`)
     }
     metadataCache.set(requirement.id, metadata)
     return metadata
@@ -94,12 +99,17 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider {
         return codeLenses
     }
 
-    async resolveCodeLens(codeLens: PyPICodeLens): Promise<vscode.CodeLens | null> {
-        const metadata = await fetchPackageMetadata(codeLens.requirement)
-        if (metadata === null) return null
+    async resolveCodeLens(codeLens: PyPICodeLens): Promise<vscode.CodeLens> {
+        let title: string
+        try {
+            const metadata = await fetchPackageMetadata(codeLens.requirement)
+            title = this.formatPackageMetadata(metadata)
+        } catch (e) {
+            title = (e as Error).message
+        }
         return new vscode.CodeLens(codeLens.range, {
             command: '',
-            title: this.formatPackageMetadata(metadata),
+            title,
         })
     }
 
