@@ -103,7 +103,15 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider {
         let title: string
         try {
             const metadata = await fetchPackageMetadata(codeLens.requirement)
-            title = this.formatPackageMetadata(metadata)
+            const packageVersion = metadata.info.version
+            if (packageVersion > codeLens.requirement.constraints[0][1]) {
+                const outdatedTitle =
+                    this.formatPackageMetadata(metadata) +
+                    `, installed version: ${codeLens.requirement.constraints[0][1]} (outdated)`
+                title = outdatedTitle
+            } else {
+                title = this.formatPackageMetadata(metadata)
+            }
         } catch (e) {
             title = (e as Error).message
         }
