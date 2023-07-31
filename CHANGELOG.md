@@ -1,4 +1,10 @@
-# Change Log
+# Changelog
+
+## [1.2.0]
+
+### Fixed
+
+-   You should no longer see "!!!MISSING: command!!!", which appeared on lines containing previously unsupported syntax (such as `-r requirements.txt` specs). This is the result of parsing having switched from an internal regular expression to the [pip-requirements-js](https://github.com/Twixes/pypi-assistant/edit/master/CHANGELOG.md) library, which has proper support for the whole requirements file syntax.
 
 ## [1.1.3]
 
