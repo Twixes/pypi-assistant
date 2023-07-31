@@ -70,7 +70,7 @@
     "dependencies": {
         "dayjs": "^1.10.8",
         "node-fetch": "^2.6.7",
-        "pip-requirements-js": "^0.1.2"
+        "pip-requirements-js": "^0.2.0"
     },
     "extensionDependencies": [
         "ms-python.python"

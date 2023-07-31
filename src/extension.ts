@@ -1,7 +1,7 @@
 import vscode from 'vscode'
 import fetch, { FetchError, Response } from 'node-fetch'
 import dayjs from 'dayjs'
-import { parsePipRequirementsLine, ProjectNameRequirement } from 'pip-requirements-js'
+import { parsePipRequirementsLineLoosely, ProjectNameRequirement } from 'pip-requirements-js'
 
 /* Partial model of the package response returned by PyPI. */
 export interface PackageMetadata {
@@ -55,7 +55,7 @@ async function fetchPackageMetadata(requirement: ProjectNameRequirement): Promis
 
 class PyPIHoverProvider implements vscode.HoverProvider {
     async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
-        const requirement = parsePipRequirementsLine(document.lineAt(position.line).text)
+        const requirement = parsePipRequirementsLineLoosely(document.lineAt(position.line).text)
         if (requirement?.type !== 'ProjectName') return null
         const metadata = await fetchPackageMetadata(requirement)
         if (metadata === null) return null
@@ -95,7 +95,7 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLens> {
         const codeLenses: PyPICodeLens[] = []
         if (vscode.workspace.getConfiguration('pypiAssistant').get('codeLens')) {
             for (let line = 0; line < document.lineCount; line++) {
-                const requirement = parsePipRequirementsLine(document.lineAt(line).text)
+                const requirement = parsePipRequirementsLineLoosely(document.lineAt(line).text)
                 if (requirement?.type !== 'ProjectName') continue
                 codeLenses.push(new PyPICodeLens(new vscode.Range(line, 0, line, 0), requirement))
             }
