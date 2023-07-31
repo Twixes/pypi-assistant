@@ -40,11 +40,8 @@
     },
     "scripts": {
         "prepare": "husky install",
-        "vscode:prepublish": "npm run esbuild-base -- --minify",
-        "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node",
-        "esbuild": "npm run esbuild-base -- --sourcemap",
-        "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
-        "compile": "rimraf out/** && tsc -p ./",
+        "vscode:prepublish": "npm run esbuild -- --minify",
+        "esbuild": "rimraf out/** && esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap --minify",
         "format": "prettier --write .",
         "lint": "eslint src --ext ts",
         "watch": "tsc -watch -p ./",
@@ -72,7 +69,8 @@
     },
     "dependencies": {
         "dayjs": "^1.10.8",
-        "node-fetch": "^2.6.7"
+        "node-fetch": "^2.6.7",
+        "pip-requirements-js": "^0.1.2"
     },
     "extensionDependencies": [
         "ms-python.python"
