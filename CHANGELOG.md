@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.4]
+
+### Fixed
+
+-   Fixed CodeLens not appearing for files containing non-project lines (e.g. comment-only).
+
 ## [1.2.3]
 
 ### Changed

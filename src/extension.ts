@@ -1,7 +1,7 @@
 import vscode from 'vscode'
 import fetch, { FetchError, Response } from 'node-fetch'
 import dayjs from 'dayjs'
-import { parsePipRequirementsLineLoosely, ProjectNameRequirement } from 'pip-requirements-js'
+import { parsePipRequirementsLineLoosely, ProjectNameRequirement, Requirement } from 'pip-requirements-js'
 
 /* Partial model of the package response returned by PyPI. */
 export interface PackageMetadata {
@@ -95,7 +95,12 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLens> {
         const codeLenses: PyPICodeLens[] = []
         if (vscode.workspace.getConfiguration('pypiAssistant').get('codeLens')) {
             for (let line = 0; line < document.lineCount; line++) {
-                const requirement = parsePipRequirementsLineLoosely(document.lineAt(line).text)
+                let requirement: Requirement | null
+                try {
+                    requirement = parsePipRequirementsLineLoosely(document.lineAt(line).text)
+                } catch {
+                    continue
+                }
                 if (requirement?.type !== 'ProjectName') continue
                 codeLenses.push(new PyPICodeLens(new vscode.Range(line, 0, line, 0), requirement))
             }
