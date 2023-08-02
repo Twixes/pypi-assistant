@@ -1,7 +1,14 @@
 import vscode from 'vscode'
-import fetch, { FetchError, Response } from 'node-fetch'
 import dayjs from 'dayjs'
 import { parsePipRequirementsLineLoosely, ProjectNameRequirement, Requirement } from 'pip-requirements-js'
+import wretch from 'wretch'
+import { WretchError } from 'wretch/resolver'
+import fetch, { FormData } from 'node-fetch'
+
+wretch.polyfills({
+    fetch,
+    FormData,
+})
 
 /* Partial model of the package response returned by PyPI. */
 export interface PackageMetadata {
@@ -29,23 +36,20 @@ function linkify(text: string, link?: string): string {
 async function fetchPackageMetadata(requirement: ProjectNameRequirement): Promise<PackageMetadata> {
     if (!metadataCache.has(requirement.name)) {
         metadataCache.set(requirement.name, async () => {
-            let response: Response
-            try {
-                response = await fetch(`https://pypi.org/pypi/${requirement.name}/json`)
-            } catch (e) {
-                const reason = e instanceof FetchError ? e.code : (e as Error).message
-                metadataCache.delete(requirement.name)
-                throw new Error(`Could not connect to PyPI: ${reason}`)
-            }
             let metadata: PackageMetadata
-            switch (response.status) {
-                case 200:
-                    metadata = await response.json()
-                    break
-                case 404:
-                    throw new Error(`Package not found in PyPI`)
-                default:
-                    throw new Error(`Unexpected ${response.status} response from PyPI`)
+            try {
+                metadata = await wretch(`https://pypi.org/pypi/${requirement.name}/json`).get().json()
+            } catch (e) {
+                if (e instanceof WretchError) {
+                    switch (e.status) {
+                        case 404:
+                            throw new Error(`Package not found in PyPI`)
+                        default:
+                            throw new Error(`Unexpected ${e.status} response from PyPI: ${e.json}`)
+                    }
+                }
+                metadataCache.delete(requirement.name)
+                throw new Error('Cannot connect to PyPI')
             }
             return metadata
         })
