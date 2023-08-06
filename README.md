@@ -1,4 +1,4 @@
-# [PyPI Assistant for VS Code](https://marketplace.visualstudio.com/items?itemName=twixes.pypi-assistant)
+# PyPI Assistant for VS Code
 
 ## IMPORTANT
 
@@ -9,3 +9,5 @@ This lightweight extension enables CodeLens + handy hover tooltips with PyPI pac
 Depends on [Microsoft's Python extension for VS Code](https://marketplace.visualstudio.com/items?itemName=ms-python.python) for `pip requirements` language detection.
 
 ![Extension preview](preview.png)
+
+Link to original project [PyPI Assistant for VS Code](https://marketplace.visualstudio.com/items?itemName=twixes.pypi-assistant)
