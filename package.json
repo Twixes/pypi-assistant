@@ -1,7 +1,7 @@
 {
     "name": "pypi-assistant-patched",
     "displayName": "PyPI Assistant (patched by sigseg5)",
-    "description": "pip requirements files now enhanced with up-to-date package information at a glance",
+    "description": "pip requirements files now enhanced with up-to-date package information at a glance. IMPORTANT: This is patched version! This version can send outdated messages for pip packages with '==' version specifiers.",
     "license": "MIT",
     "publisher": "twixes and sigseg5",
     "author": "twixes and sigseg5",
