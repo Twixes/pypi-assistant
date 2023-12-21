@@ -1,15 +1,11 @@
 import dayjs from 'dayjs'
 import fetch, { FormData } from 'node-fetch'
-import {
-    ProjectNameRequirement,
-    Requirement,
-    VersionOperator,
-    parsePipRequirementsLineLoosely,
-} from 'pip-requirements-js'
+import { ProjectNameRequirement, Requirement, parsePipRequirementsLineLoosely } from 'pip-requirements-js'
 import { parse } from 'toml'
 import vscode from 'vscode'
 import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
+import { createHash } from 'node:crypto'
 
 wretch.polyfills({
     fetch,
@@ -48,7 +44,14 @@ function parseDependenciesGroup(dependenciesGroup: Record<string, string>): Proj
         }))
 }
 
+const parsedPyProjectToml = new Map<string, ProjectNameRequirement[]>()
+
 function getPyProjectDependencies(fileContents: string): ProjectNameRequirement[] {
+    const hash = createHash('sha256').update(fileContents).digest('hex')
+    const cachedDependencies = parsedPyProjectToml.get(hash)
+
+    if (cachedDependencies) return cachedDependencies
+
     const parsedContents = parse(fileContents)
     const dependencies: ProjectNameRequirement[] = []
 
@@ -69,6 +72,7 @@ function getPyProjectDependencies(fileContents: string): ProjectNameRequirement[
         })
     }
 
+    parsedPyProjectToml.set(hash, dependencies)
     return dependencies
 }
 
@@ -112,7 +116,11 @@ class PyPIHoverProvider implements vscode.HoverProvider {
             document.languageId === 'toml' && document.fileName.toLowerCase().endsWith('pyproject.toml')
 
         if (isPyProjectToml) {
+            const dependencies = getPyProjectDependencies(document.getText())
+            // Workaround for extracting just the package name from the line
             lineText = lineText.split('=')[0].trim()
+            const requirement = dependencies.find((dependency) => dependency.name === lineText)
+            if (requirement === undefined) return null
         }
         outputChannel.appendLine(`Parsing line ${lineText}`)
 
