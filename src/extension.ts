@@ -103,13 +103,13 @@ let lastLineText = ''
 
 class PyPIHoverProvider implements vscode.HoverProvider {
     async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
-        if (lastLine === position.line) {
+        let lineText = document.lineAt(position.line).text
+        if (lastLine === position.line && lineText === lastLineText) {
             return lastHover
         }
 
         const isPyProjectToml =
             document.languageId === 'toml' && document.fileName.toLowerCase().endsWith('pyproject.toml')
-        let lineText = document.lineAt(position.line).text
 
         if (isPyProjectToml) {
             lineText = lineText.split('=')[0].trim()
