@@ -23,7 +23,8 @@
         "theme": "dark"
     },
     "activationEvents": [
-        "onLanguage:pip-requirements"
+        "onLanguage:pip-requirements",
+        "onLanguage:toml"
     ],
     "main": "./out/main.js",
     "contributes": {
@@ -71,6 +72,7 @@
         "dayjs": "^1.10.8",
         "node-fetch": "^3.3.2",
         "pip-requirements-js": "^0.2.1",
+        "toml": "^3.0.0",
         "wretch": "^2.6.0"
     },
     "extensionDependencies": [
