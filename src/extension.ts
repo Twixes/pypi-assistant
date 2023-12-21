@@ -97,8 +97,16 @@ async function fetchPackageMetadata(requirement: ProjectNameRequirement): Promis
     return await metadataCache.get(requirement.name)!()
 }
 
+let lastLine = -1
+let lastHover: vscode.Hover | null = null
+let lastLineText = ''
+
 class PyPIHoverProvider implements vscode.HoverProvider {
     async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
+        if (lastLine === position.line) {
+            return lastHover
+        }
+
         const isPyProjectToml =
             document.languageId === 'toml' && document.fileName.toLowerCase().endsWith('pyproject.toml')
         let lineText = document.lineAt(position.line).text
@@ -113,7 +121,11 @@ class PyPIHoverProvider implements vscode.HoverProvider {
         if (requirement?.type !== 'ProjectName') return null
         const metadata = await fetchPackageMetadata(requirement)
         if (metadata === null) return null
-        return new vscode.Hover(this.formatPackageMetadata(metadata))
+        // Cache the last hover to avoid fetching the same metadata twice
+        lastLineText = lineText
+        lastLine = position.line
+        lastHover = new vscode.Hover(this.formatPackageMetadata(metadata))
+        return lastHover
     }
 
     formatPackageMetadata(metadata: PackageMetadata): string {
