@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import dayjs from 'dayjs'
 import fetch, { FormData } from 'node-fetch'
 import { ProjectNameRequirement, Requirement, parsePipRequirementsLineLoosely } from 'pip-requirements-js'
@@ -5,7 +6,6 @@ import { parse } from 'toml'
 import vscode from 'vscode'
 import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
-import { createHash } from 'node:crypto'
 
 wretch.polyfills({
     fetch,
@@ -101,21 +101,22 @@ async function fetchPackageMetadata(requirement: ProjectNameRequirement): Promis
     return await metadataCache.get(requirement.name)!()
 }
 
-let lastLine = -1
-let lastHover: vscode.Hover | null = null
-let lastLineText = ''
+function isPyProjectToml(document: vscode.TextDocument): boolean {
+    return document.languageId === 'toml' && document.fileName.toLowerCase().endsWith('pyproject.toml')
+}
 
 class PyPIHoverProvider implements vscode.HoverProvider {
+    lastHover: vscode.Hover | null = null
+    lastLineText = ''
     async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
         let lineText = document.lineAt(position.line).text
-        if (lastLine === position.line && lineText === lastLineText) {
-            return lastHover
+        if (lineText === this.lastLineText) {
+            return this.lastHover
         }
 
-        const isPyProjectToml =
-            document.languageId === 'toml' && document.fileName.toLowerCase().endsWith('pyproject.toml')
+        const pyProjectToml = isPyProjectToml(document)
 
-        if (isPyProjectToml) {
+        if (pyProjectToml) {
             const dependencies = getPyProjectDependencies(document.getText())
             // Workaround for extracting just the package name from the line
             lineText = lineText.split('=')[0].trim()
@@ -130,10 +131,9 @@ class PyPIHoverProvider implements vscode.HoverProvider {
         const metadata = await fetchPackageMetadata(requirement)
         if (metadata === null) return null
         // Cache the last hover to avoid fetching the same metadata twice
-        lastLineText = lineText
-        lastLine = position.line
-        lastHover = new vscode.Hover(this.formatPackageMetadata(metadata))
-        return lastHover
+        this.lastLineText = lineText
+        this.lastHover = new vscode.Hover(this.formatPackageMetadata(metadata))
+        return this.lastHover
     }
 
     formatPackageMetadata(metadata: PackageMetadata): string {
