@@ -6,6 +6,7 @@ import { parse } from 'toml'
 import vscode from 'vscode'
 import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
+import path from 'node:path'
 
 wretch.polyfills({
     fetch,
@@ -102,12 +103,17 @@ async function fetchPackageMetadata(requirement: ProjectNameRequirement): Promis
 }
 
 function isPyProjectToml(document: vscode.TextDocument): boolean {
-    return document.languageId === 'toml' && document.fileName.toLowerCase().endsWith('pyproject.toml')
+    if (document.languageId !== 'toml') {
+        return false
+    }
+    const parsedPath = path.parse(document.fileName)
+    return parsedPath.ext === 'toml' && parsedPath.name === 'pyproject'
 }
 
 class PyPIHoverProvider implements vscode.HoverProvider {
     lastHover: vscode.Hover | null = null
     lastLineText = ''
+
     async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
         let lineText = document.lineAt(position.line).text
         if (lineText === this.lastLineText) {
@@ -173,7 +179,7 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLens> {
             return codeLenses
         }
 
-        if (document.languageId === 'toml' && document.fileName.toLowerCase().endsWith('pyproject.toml')) {
+        if (isPyProjectToml(document)) {
             const dependencies = getPyProjectDependencies(document.getText())
 
             for (let line = 0; line < document.lineCount; line++) {
