@@ -107,7 +107,8 @@ function isPyProjectToml(document: vscode.TextDocument): boolean {
         return false
     }
     const parsedPath = path.parse(document.fileName)
-    return parsedPath.ext === 'toml' && parsedPath.name === 'pyproject'
+    outputChannel.appendLine(`File: ${document.fileName}, extension: ${parsedPath.ext}, name: ${parsedPath.name}`)
+    return parsedPath.ext === '.toml' && parsedPath.name === 'pyproject'
 }
 
 class PyPIHoverProvider implements vscode.HoverProvider {
