@@ -116,19 +116,17 @@ class PyPIHoverProvider implements vscode.HoverProvider {
     lastLineText = ''
 
     async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
-        let lineText = document.lineAt(position.line).text
-        if (lineText === this.lastLineText) {
+        const fullLineText = document.lineAt(position.line).text
+        if (fullLineText === this.lastLineText) {
             return this.lastHover
         }
+        let lineText = fullLineText
 
         const pyProjectToml = isPyProjectToml(document)
 
         if (pyProjectToml) {
-            const dependencies = getPyProjectDependencies(document.getText())
             // Workaround for extracting just the package name from the line
             lineText = lineText.split('=')[0].trim()
-            const requirement = dependencies.find((dependency) => dependency.name === lineText)
-            if (requirement === undefined) return null
         }
         outputChannel.appendLine(`Parsing line ${lineText}`)
 
@@ -138,7 +136,7 @@ class PyPIHoverProvider implements vscode.HoverProvider {
         const metadata = await fetchPackageMetadata(requirement)
         if (metadata === null) return null
         // Cache the last hover to avoid fetching the same metadata twice
-        this.lastLineText = lineText
+        this.lastLineText = fullLineText
         this.lastHover = new vscode.Hover(this.formatPackageMetadata(metadata))
         return this.lastHover
     }
