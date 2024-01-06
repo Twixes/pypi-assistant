@@ -1,14 +1,18 @@
-import vscode from 'vscode'
+import { createHash } from 'node:crypto'
 import dayjs from 'dayjs'
-import { parsePipRequirementsLineLoosely, ProjectNameRequirement, Requirement } from 'pip-requirements-js'
+import fetch, { FormData } from 'node-fetch'
+import { ProjectNameRequirement, Requirement, parsePipRequirementsLineLoosely } from 'pip-requirements-js'
+import { parse } from 'toml'
+import vscode from 'vscode'
 import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
-import fetch, { FormData } from 'node-fetch'
+import path from 'node:path'
 
 wretch.polyfills({
     fetch,
     FormData,
 })
+const outputChannel = vscode.window.createOutputChannel('PyPI Assistant')
 
 /* Partial model of the package response returned by PyPI. */
 export interface PackageMetadata {
@@ -26,10 +30,51 @@ export interface PackageMetadata {
     releases: Record<string, { upload_time: string }[]>
 }
 
-let metadataCache: Map<string, () => Promise<PackageMetadata>> = new Map()
+const metadataCache: Map<string, () => Promise<PackageMetadata>> = new Map()
 
 function linkify(text: string, link?: string): string {
     return link ? `[${text}](${link})` : text
+}
+
+function parseDependenciesGroup(dependenciesGroup: Record<string, string>): ProjectNameRequirement[] {
+    return Object.keys(dependenciesGroup)
+        .filter((dependency) => dependency.toLowerCase() !== 'python')
+        .map((dependency) => ({
+            name: dependency,
+            type: 'ProjectName',
+        }))
+}
+
+const parsedPyProjectToml = new Map<string, ProjectNameRequirement[]>()
+
+function getPyProjectDependencies(fileContents: string): ProjectNameRequirement[] {
+    const hash = createHash('sha256').update(fileContents).digest('hex')
+    const cachedDependencies = parsedPyProjectToml.get(hash)
+
+    if (cachedDependencies) return cachedDependencies
+
+    const parsedContents = parse(fileContents)
+    const dependencies: ProjectNameRequirement[] = []
+
+    const productionDependencies = parsedContents?.tool?.poetry?.dependencies || {}
+    const parsedProductionDependencies = parseDependenciesGroup(productionDependencies)
+
+    dependencies.push(...parsedProductionDependencies)
+
+    const group = parsedContents?.tool?.poetry?.group
+
+    if (group) {
+        outputChannel.appendLine(`Found group dependencies: ${JSON.stringify(group)}`)
+        Object.keys(group).forEach((groupName) => {
+            outputChannel.appendLine(`Processing dependencies group: ${groupName}`)
+            const groupDependencies = parseDependenciesGroup(group[groupName]?.dependencies || {})
+            outputChannel.appendLine(`Parsed dependencies group: ${JSON.stringify(groupDependencies)}`)
+            dependencies.push(...groupDependencies)
+        })
+    }
+
+    parsedPyProjectToml.set(hash, dependencies)
+    return dependencies
 }
 
 /** Fetching package metadata with a caching layer. */
@@ -57,13 +102,43 @@ async function fetchPackageMetadata(requirement: ProjectNameRequirement): Promis
     return await metadataCache.get(requirement.name)!()
 }
 
+function isPyProjectToml(document: vscode.TextDocument): boolean {
+    if (document.languageId !== 'toml') {
+        return false
+    }
+    const parsedPath = path.parse(document.fileName)
+    outputChannel.appendLine(`File: ${document.fileName}, extension: ${parsedPath.ext}, name: ${parsedPath.name}`)
+    return parsedPath.ext === '.toml' && parsedPath.name === 'pyproject'
+}
+
 class PyPIHoverProvider implements vscode.HoverProvider {
+    lastHover: vscode.Hover | null = null
+    lastLineText = ''
+
     async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | null> {
-        const requirement = parsePipRequirementsLineLoosely(document.lineAt(position.line).text)
+        const fullLineText = document.lineAt(position.line).text
+        if (fullLineText === this.lastLineText) {
+            return this.lastHover
+        }
+        let lineText = fullLineText
+
+        const pyProjectToml = isPyProjectToml(document)
+
+        if (pyProjectToml) {
+            // Workaround for extracting just the package name from the line
+            lineText = lineText.split('=')[0].trim()
+        }
+        outputChannel.appendLine(`Parsing line ${lineText}`)
+
+        const requirement = parsePipRequirementsLineLoosely(lineText)
+        outputChannel.appendLine(`Parsed requirement: ${JSON.stringify(requirement)} from ${lineText}`)
         if (requirement?.type !== 'ProjectName') return null
         const metadata = await fetchPackageMetadata(requirement)
         if (metadata === null) return null
-        return new vscode.Hover(this.formatPackageMetadata(metadata))
+        // Cache the last hover to avoid fetching the same metadata twice
+        this.lastLineText = fullLineText
+        this.lastHover = new vscode.Hover(this.formatPackageMetadata(metadata))
+        return this.lastHover
     }
 
     formatPackageMetadata(metadata: PackageMetadata): string {
@@ -96,18 +171,37 @@ class PyPICodeLens extends vscode.CodeLens {
 
 class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLens> {
     provideCodeLenses(document: vscode.TextDocument): PyPICodeLens[] {
+        const codeLensEnabled = vscode.workspace.getConfiguration('pypiAssistant').get('codeLens')
         const codeLenses: PyPICodeLens[] = []
-        if (vscode.workspace.getConfiguration('pypiAssistant').get('codeLens')) {
+
+        if (!codeLensEnabled) {
+            return codeLenses
+        }
+
+        if (isPyProjectToml(document)) {
+            const dependencies = getPyProjectDependencies(document.getText())
+
             for (let line = 0; line < document.lineCount; line++) {
-                let requirement: Requirement | null
-                try {
-                    requirement = parsePipRequirementsLineLoosely(document.lineAt(line).text)
-                } catch {
-                    continue
-                }
+                const lineText = document.lineAt(line).text
+                const requirement = dependencies.find((dependency) => {
+                    return lineText.startsWith(`${dependency.name} = `)
+                })
+
                 if (requirement?.type !== 'ProjectName') continue
                 codeLenses.push(new PyPICodeLens(new vscode.Range(line, 0, line, 0), requirement))
             }
+            return codeLenses
+        }
+
+        for (let line = 0; line < document.lineCount; line++) {
+            let requirement: Requirement | null
+            try {
+                requirement = parsePipRequirementsLineLoosely(document.lineAt(line).text)
+            } catch {
+                continue
+            }
+            if (requirement?.type !== 'ProjectName') continue
+            codeLenses.push(new PyPICodeLens(new vscode.Range(line, 0, line, 0), requirement))
         }
         return codeLenses
     }
@@ -134,8 +228,12 @@ class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLens> {
 }
 
 export function activate(_: vscode.ExtensionContext) {
-    vscode.languages.registerCodeLensProvider('pip-requirements', new PyPICodeLensProvider())
-    vscode.languages.registerHoverProvider('pip-requirements', new PyPIHoverProvider())
+    const hoverProvider = new PyPIHoverProvider()
+    const codeLensProvider = new PyPICodeLensProvider()
+    vscode.languages.registerCodeLensProvider('pip-requirements', codeLensProvider)
+    vscode.languages.registerHoverProvider('pip-requirements', hoverProvider)
+    vscode.languages.registerCodeLensProvider('toml', codeLensProvider)
+    vscode.languages.registerHoverProvider('toml', hoverProvider)
 }
 
 export function deactivate() {
