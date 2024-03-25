@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.0]
+
+### Added
+
+-   Support for Poetry dependencies specified in `pyproject.toml`! Thanks to [@alex-way](https://github.com/alex-way) for contributing in [#10](https://github.com/Twixes/pypi-assistant/pull/25).
+
 ## [1.2.4]
 
 ### Fixed
@@ -22,7 +28,7 @@
 
 ### Fixed
 
--   Version specs with wildcards, such as `bcrypt==4.0.*`, are now properly recognized. Contributed by @a-was. Thanks!
+-   Version specs with wildcards, such as `bcrypt==4.0.*`, are now properly recognized. Contributed by [@a-was](https://github.com/a-was). Thanks!
 
 ## [1.1.2]
 
@@ -34,7 +40,7 @@
 
 ### Added
 
--   CodeLens support: latest package version shown directly in the editor! Enabled by default, but can be disabled in VS Code settings. Contributed by @elliotwutingfeng. Thanks!
+-   CodeLens support: latest package version shown directly in the editor! Enabled by default, but can be disabled in VS Code settings. Contributed by [@elliotwutingfeng](https://github.com/elliotwutingfeng). Thanks!
 
 ## [1.0.4]
 
