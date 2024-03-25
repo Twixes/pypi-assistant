@@ -1,7 +1,14 @@
 # [PyPI Assistant for VS Code](https://marketplace.visualstudio.com/items?itemName=twixes.pypi-assistant)
 
-This lightweight extension enables CodeLens + handy hover tooltips with PyPI package information in [pip requirements files](https://pip.pypa.io/en/stable/user_guide/#requirements-files) (`requirements.txt`, `constraints.txt`) and [`pyproject.toml`](https://python-poetry.org/docs/pyproject/#dependencies-and-dependency-groups) files – similar to what VS Code does by default in `package.json`. Gain access to package name, description, author(s), license, and latest version at a glance, with links in case you need more details.
+Handy hover tooltips + CodeLens for dependencies from PyPI – similar to what VS Code has built in for dependencies in `package.json`.
 
-Depends on [Microsoft's Python extension for VS Code](https://marketplace.visualstudio.com/items?itemName=ms-python.python) for `pip requirements` language detection.
+Gain access to: package name, description, author(s), license, and latest version at a glance, with links in case you need more details.
 
 ![Extension preview](preview.png)
+
+Supported formats:
+
+-   [pip requirements files](https://pip.pypa.io/en/stable/user_guide/#requirements-files) (`requirements.txt`, `constraints.txt`, and such)
+-   [Poetry](https://python-poetry.org/docs/pyproject/#dependencies-and-dependency-groups) (`pyproject.toml`)
+
+This extension depends on [Microsoft's official Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) for `pip requirements` language detection.
