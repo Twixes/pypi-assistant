@@ -19,15 +19,22 @@ export class RequirementsParser {
         if (this.cache.has(cacheKey)) {
             requirements = this.cache.get(cacheKey)!
         } else {
-            switch (RequirementsParser.determineFileType(document)) {
-                case 'pip-requirements':
-                    requirements = extractRequirementsFromPipRequirements(document)
-                    break
-                case 'pyproject':
-                    requirements = extractRequirementsFromPyprojectToml(document)
-                    break
-                default:
-                    return []
+            try {
+                switch (RequirementsParser.determineFileType(document)) {
+                    case 'pip-requirements':
+                        requirements = extractRequirementsFromPipRequirements(document)
+                        break
+                    case 'pyproject':
+                        requirements = extractRequirementsFromPyprojectToml(document)
+                        break
+                    default:
+                        return []
+                }
+            } catch (e) {
+                outputChannel.appendLine(
+                    `Error parsing requirements in ${document.uri.toString(true)}::${document.version}: ${e}`
+                )
+                return []
             }
             outputChannel.appendLine(
                 `Parsed requirements in ${document.uri.toString(true)}::${document.version}:\n${requirements
