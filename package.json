@@ -1,7 +1,7 @@
 {
     "name": "pypi-assistant",
     "displayName": "PyPI Assistant",
-    "description": "pip requirements files now enhanced with up-to-date package information at a glance",
+    "description": "Python dependencies enhanced with PyPI package information at a glance",
     "license": "MIT",
     "publisher": "twixes",
     "author": "Twixes",
