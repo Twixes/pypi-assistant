@@ -1,11 +1,11 @@
 {
     "name": "pypi-assistant",
     "displayName": "PyPI Assistant",
-    "description": "Python dependencies enhanced with PyPI package information at a glance",
+    "description": "PyPI package information at a glance for Python dependencies",
     "license": "MIT",
     "publisher": "twixes",
     "author": "Twixes",
-    "version": "2.0.4",
+    "version": "2.0.3",
     "engines": {
         "vscode": "^1.45.0"
     },
