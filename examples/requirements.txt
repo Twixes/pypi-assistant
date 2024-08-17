@@ -1,0 +1,4 @@
+beautifulsoup4==4.10.0
+ptvsd==4.3.2
+aiochclient[aiohttp-speedups]==2.5.1
+pycares==4.4.* # Without this, an older version is installed, which has compilation issues on Python 3.11

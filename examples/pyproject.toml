@@ -1,0 +1,30 @@
+[project]
+dependencies = [
+  "httpx",
+  "gidgethub[httpx]>4.0.0",
+  "django>2.1; os_name != 'nt'",
+  "django>2.0; os_name == 'nt'",
+]
+
+[project.optional-dependencies]
+gui = ["PyQt5"]
+cli = [
+  "rich",
+  "click",
+]
+
+[tool.poetry]
+name = "poetry-demo"
+version = "0.1.0"
+description = "Test"
+authors = ["Michael Matloka"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+requests = "^2.22.0"
+
+[tool.poetry.group.test]
+
+[tool.poetry.group.test.dependencies]
+pytest = "^6.0.0"
+pytest-mock = "*"
