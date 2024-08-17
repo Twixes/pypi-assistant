@@ -1,4 +1,4 @@
-import { extractRequirementsFromPipRequirements } from './pip'
+import { extractRequirementsFromPipRequirements } from './requirements'
 import { TextDocumentLike } from './types'
 
 export function makeTextDocumentLike(lines: string[]): TextDocumentLike {

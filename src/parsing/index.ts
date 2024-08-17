@@ -1,8 +1,8 @@
 import { LooseProjectNameRequirement } from 'pip-requirements-js'
 import vscode from 'vscode'
 import { LRUCache } from 'lru-cache'
-import { extractRequirementsFromPipRequirements } from './pip'
-import { extractRequirementsFromPyprojectToml } from './poetry'
+import { extractRequirementsFromPipRequirements } from './requirements'
+import { extractRequirementsFromPyprojectToml } from './pyproject'
 import path from 'node:path'
 import { RawRange } from './types'
 

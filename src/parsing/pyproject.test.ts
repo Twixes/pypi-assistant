@@ -1,4 +1,4 @@
-import { extractRequirementsFromPyprojectToml } from './poetry'
+import { extractRequirementsFromPyprojectToml } from './pyproject'
 import { TextDocumentLike } from './types'
 
 export function makeTextDocumentLike(lines: string[]): TextDocumentLike {
@@ -15,7 +15,7 @@ export function makeTextDocumentLike(lines: string[]): TextDocumentLike {
     }
 }
 
-describe('extractRequirementsFromPyprojectToml', () => {
+describe('extractRequirementsFromPyprojectToml with Poetry', () => {
     it('should extract basic requirements', () => {
         const document = makeTextDocumentLike([
             '[tool.poetry]',
@@ -108,5 +108,46 @@ describe('extractRequirementsFromPyprojectToml', () => {
         const result = extractRequirementsFromPyprojectToml(document)
 
         expect(result).toEqual([[{ name: 'black', type: 'ProjectName' }, [6, 0, 10, 55]]])
+    })
+})
+
+describe('extractRequirementsFromPyprojectToml with PEP 631', () => {
+    it('should extract basic requirements', () => {
+        const document = makeTextDocumentLike([
+            '[project]',
+            'dependencies = [',
+            '  "httpx",',
+            '  "gidgethub[httpx]>4.0.0",',
+            '  "django>2.1; os_name != \'nt\'",',
+            '  "django>2.0; os_name == \'nt\'"',
+            ']',
+        ])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([
+            [{ name: 'httpx', type: 'ProjectName' }, [2, 2, 2, 9]],
+            [{ name: 'gidgethub', type: 'ProjectName' }, [3, 2, 3, 26]],
+            [{ name: 'django', type: 'ProjectName' }, [4, 2, 4, 31]],
+            [{ name: 'django', type: 'ProjectName' }, [5, 2, 5, 31]],
+        ])
+    })
+
+    it('should extract requirements from extras', () => {
+        const document = makeTextDocumentLike([
+            '[project]',
+            'dependencies = [',
+            '  "httpx",',
+            ']',
+            '[project.optional-dependencies]',
+            'cli = ["gidgethub[httpx]>4.0.0"]',
+        ])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([
+            [{ name: 'httpx', type: 'ProjectName' }, [2, 2, 2, 9]],
+            [{ name: 'gidgethub', type: 'ProjectName' }, [5, 7, 5, 31]],
+        ])
     })
 })

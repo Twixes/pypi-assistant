@@ -1,10 +1,16 @@
 # Changelog
 
+## [2.1.0]
+
+### Added
+
+-   Support for [PEP 631](https://peps.python.org/pep-0631/) dependencies specified in `pyproject.toml`!
+
 ## [2.0.0]
 
 ### Added
 
--   Support for Poetry dependencies specified in `pyproject.toml`! Thanks to [@alex-way](https://github.com/alex-way) for contributing in [#10](https://github.com/Twixes/pypi-assistant/pull/25).
+-   Support for [Poetry](https://python-poetry.org/docs/pyproject/#dependencies-and-dependency-groups) dependencies specified in `pyproject.toml`! Thanks to [@alex-way](https://github.com/alex-way) for contributing in [#10](https://github.com/Twixes/pypi-assistant/pull/25).
 
 ## [1.2.4]
 
