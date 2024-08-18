@@ -78,7 +78,6 @@ class PoetryVisitor implements Visitor<TOMLNode> {
                 continue // Only non-empty strings can be dependency specifiers
             }
             let requirement: Requirement | null
-            console.log(item.value)
             try {
                 requirement = parsePipRequirementsLineLoosely(item.value)
             } catch {
