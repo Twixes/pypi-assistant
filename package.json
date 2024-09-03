@@ -1,6 +1,6 @@
 {
     "name": "pypi-assistant",
-    "displayName": "PyPI Assistant",
+    "displayName": "Python PyPI Assistant",
     "description": "PyPI package information at a glance for Python dependencies",
     "license": "MIT",
     "publisher": "twixes",
@@ -29,7 +29,7 @@
     "main": "./out/main.js",
     "contributes": {
         "configuration": {
-            "title": "PyPI Assistant",
+            "title": "Python PyPI Assistant",
             "properties": {
                 "pypiAssistant.codeLens": {
                     "type": "boolean",

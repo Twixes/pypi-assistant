@@ -6,7 +6,7 @@ import { extractRequirementsFromPyprojectToml } from './pyproject'
 import path from 'node:path'
 import { RawRange } from './types'
 
-const outputChannel = vscode.window.createOutputChannel('PyPI Assistant')
+const outputChannel = vscode.window.createOutputChannel('Python PyPI Assistant')
 
 type VersionedFileKey = `${string}::${number}`
 
