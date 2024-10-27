@@ -2,11 +2,10 @@ import { ProjectNameRequirement } from 'pip-requirements-js'
 import { PackageMetadata } from './extension'
 import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
-import fetch, { FormData } from 'node-fetch'
 
 wretch.polyfills({
-    fetch,
-    FormData,
+    fetch: require('node-fetch'),
+    FormData: require('form-data'),
 })
 
 /** Fetching package metadata with a caching layer. */

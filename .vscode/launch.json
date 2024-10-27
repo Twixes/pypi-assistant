@@ -8,7 +8,7 @@
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
             "outFiles": ["${workspaceFolder}/out/**/*.js"],
-            "preLaunchTask": "${defaultBuildTask}"
+            "preLaunchTask": "npm: build-desktop"
         },
         {
             "name": "Run Web Extension",
@@ -17,7 +17,7 @@
             "request": "launch",
             "args": ["--extensionDevelopmentPath=${workspaceFolder}", "--extensionDevelopmentKind=web"],
             "outFiles": ["${workspaceFolder}/out/**/*.js"],
-            "preLaunchTask": "${defaultBuildTask}"
+            "preLaunchTask": "npm: build-web"
         },
         {
             "name": "Extension Tests",
@@ -29,7 +29,7 @@
                 "--extensionTestsPath=${workspaceFolder}/out/test/suite/index"
             ],
             "outFiles": ["${workspaceFolder}/out/test/**/*.js"],
-            "preLaunchTask": "${defaultBuildTask}"
+            "preLaunchTask": "npm: build-desktop"
         }
     ]
 }

@@ -3,7 +3,7 @@ import vscode from 'vscode'
 import { LRUCache } from 'lru-cache'
 import { extractRequirementsFromPipRequirements } from './requirements'
 import { extractRequirementsFromPyprojectToml } from './pyproject'
-import path from 'node:path'
+import pathParse from 'path-parse'
 import { RawRange } from './types'
 
 const outputChannel = vscode.window.createOutputChannel('Python PyPI Assistant')
@@ -72,7 +72,7 @@ export class RequirementsParser {
         if (document.languageId === 'pip-requirements') {
             return 'pip-requirements'
         } else if (document.languageId === 'toml') {
-            const parsedPath = path.parse(document.fileName)
+            const parsedPath = pathParse(document.fileName)
             if (parsedPath.ext === '.toml' && parsedPath.name === 'pyproject') {
                 return 'pyproject'
             }
