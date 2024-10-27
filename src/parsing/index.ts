@@ -4,8 +4,7 @@ import { LRUCache } from 'lru-cache'
 import { extractRequirementsFromPipRequirements } from './requirements'
 import { extractRequirementsFromPyprojectToml } from './pyproject'
 import { RawRange } from './types'
-
-const outputChannel = vscode.window.createOutputChannel('Python PyPI Assistant')
+import { outputChannel } from '../output'
 
 type VersionedFileKey = `${string}::${number}`
 
@@ -31,12 +30,12 @@ export class RequirementsParser {
                 }
             } catch (e) {
                 outputChannel.appendLine(
-                    `Error parsing requirements in ${document.uri.toString(true)}::${document.version}: ${e}`
+                    `Error parsing requirements in ${document.uri.toString(true)}, v${document.version}: ${e}`
                 )
                 return []
             }
             outputChannel.appendLine(
-                `Parsed requirements in ${document.uri.toString(true)}::${document.version}:\n${requirements
+                `Parsed requirements in ${document.uri.toString(true)}, v${document.version}:\n${requirements
                     .map(
                         ([requirement, range]) =>
                             `${requirement.name} @ ${range[0]}#${range[1]} - ${range[2]}#${range[3]}`

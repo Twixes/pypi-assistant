@@ -2,6 +2,7 @@ import { ProjectNameRequirement } from 'pip-requirements-js'
 import { PackageMetadata } from './extension'
 import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
+import { outputChannel } from './output'
 
 if (typeof process !== 'undefined') {
     wretch.polyfills({
@@ -30,6 +31,7 @@ export class PyPI {
                         }
                     }
                     this.cache.delete(requirement.name)
+                    outputChannel.appendLine(`Error fetching package metadata for ${requirement.name} - ${e}`)
                     throw new Error('Cannot connect to PyPI')
                 }
                 return metadata
