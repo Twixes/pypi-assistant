@@ -4,13 +4,6 @@ import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
 import { outputChannel } from './output'
 
-if (typeof process !== 'undefined') {
-    wretch.polyfills({
-        fetch: require('node-fetch'),
-        FormData: require('form-data'),
-    })
-}
-
 /** Fetching package metadata with a caching layer. */
 export class PyPI {
     constructor(public cache: Map<string, () => Promise<PackageMetadata>> = new Map()) {}
@@ -32,7 +25,7 @@ export class PyPI {
                     }
                     this.cache.delete(requirement.name)
                     outputChannel.appendLine(
-                        `Error fetching package metadata for ${requirement.name} - ${e.stack || e}`
+                        `Error fetching package metadata for ${requirement.name} - ${(e as Error).stack || e}`
                     )
                     throw new Error('Cannot connect to PyPI')
                 }
