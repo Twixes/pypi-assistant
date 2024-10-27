@@ -44,7 +44,7 @@
         "prepare": "husky install",
         "vscode:prepublish": "npm run build",
         "build": "rimraf out && npm run build-desktop && npm run build-web",
-        "build-desktop": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap --minify",
+        "build-desktop": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap",
         "build-web": "esbuild ./src/extension.ts --bundle --outfile=out/browser.js --external:vscode --format=cjs --platform=browser --external:node-fetch --sourcemap --minify",
         "format": "prettier --write .",
         "lint": "eslint src --ext ts",

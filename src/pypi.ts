@@ -31,7 +31,9 @@ export class PyPI {
                         }
                     }
                     this.cache.delete(requirement.name)
-                    outputChannel.appendLine(`Error fetching package metadata for ${requirement.name} - ${e}`)
+                    outputChannel.appendLine(
+                        `Error fetching package metadata for ${requirement.name} - ${e.stack || e}`
+                    )
                     throw new Error('Cannot connect to PyPI')
                 }
                 return metadata
