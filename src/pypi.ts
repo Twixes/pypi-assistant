@@ -3,10 +3,12 @@ import { PackageMetadata } from './extension'
 import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
 
-wretch.polyfills({
-    fetch: require('node-fetch'),
-    FormData: require('form-data'),
-})
+if (typeof process !== 'undefined') {
+    wretch.polyfills({
+        fetch: require('node-fetch'),
+        FormData: require('form-data'),
+    })
+}
 
 /** Fetching package metadata with a caching layer. */
 export class PyPI {
