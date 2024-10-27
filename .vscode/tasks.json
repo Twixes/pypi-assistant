@@ -3,7 +3,7 @@
     "tasks": [
         {
             "type": "npm",
-            "script": "esbuild",
+            "script": "build",
             "problemMatcher": "$tsc",
             "presentation": {
                 "reveal": "never"

@@ -7,7 +7,7 @@
     "author": "Twixes",
     "version": "2.1.2",
     "engines": {
-        "vscode": "^1.45.0"
+        "vscode": "^1.74.0"
     },
     "categories": [
         "Other"
@@ -27,6 +27,7 @@
         "onLanguage:toml"
     ],
     "main": "./out/main.js",
+    "browser": "./out/main.js",
     "contributes": {
         "configuration": {
             "title": "Python PyPI Assistant",
@@ -41,11 +42,10 @@
     },
     "scripts": {
         "prepare": "husky install",
-        "vscode:prepublish": "npm run esbuild -- --minify",
-        "esbuild": "rimraf out/** && esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap --minify",
+        "vscode:prepublish": "npm run build",
+        "build": "rimraf out/** && esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap --minify",
         "format": "prettier --write .",
         "lint": "eslint src --ext ts",
-        "watch": "tsc -watch -p ./",
         "pretest": "npm run lint",
         "test": "jest"
     },
