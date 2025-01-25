@@ -75,22 +75,7 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
         if (!isUnderRequiredDependencies && !isUnderOptionalDependencies) {
             return
         }
-        for (const item of node.elements) {
-            if (item.type !== 'TOMLValue' || typeof item.value !== 'string' || !item.value) {
-                continue // Only non-empty strings can be dependency specifiers
-            }
-            let requirement: Requirement | null
-            try {
-                requirement = parsePipRequirementsLineLoosely(item.value)
-            } catch {
-                continue
-            }
-            if (requirement?.type !== 'ProjectName') continue
-            this.dependencies.push([
-                requirement,
-                [item.loc.start.line - 1, item.loc.start.column, item.loc.end.line - 1, item.loc.end.column],
-            ])
-        }
+        this.registerElementsAsDependencies(node.elements)
     }
 
     private potentiallyRegisterUVDependency(node: TOMLArray): void {
@@ -113,22 +98,7 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
         if (!isUnderConstraintDependencies && !isUnderDevDependencies && !isUnderOverrideDependencies) {
             return
         }
-        for (const item of node.elements) {
-            if (item.type !== 'TOMLValue' || typeof item.value !== 'string' || !item.value) {
-                continue // Only non-empty strings can be dependency specifiers
-            }
-            let requirement: Requirement | null
-            try {
-                requirement = parsePipRequirementsLineLoosely(item.value)
-            } catch {
-                continue
-            }
-            if (requirement?.type !== 'ProjectName') continue
-            this.dependencies.push([
-                requirement,
-                [item.loc.start.line - 1, item.loc.start.column, item.loc.end.line - 1, item.loc.end.column],
-            ])
-        }
+        this.registerElementsAsDependencies(node.elements)
     }
 
     private potentiallyRegisterPep735Dependency(node: TOMLArray): void {
@@ -136,7 +106,11 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
         if (!isUnderDependencyGroups) {
             return
         }
-        for (const item of node.elements) {
+        this.registerElementsAsDependencies(node.elements)
+    }
+
+    private registerElementsAsDependencies(elements: TOMLNode[]): void {
+        for (const item of elements) {
             if (item.type !== 'TOMLValue' || typeof item.value !== 'string' || !item.value) {
                 continue // Only non-empty strings can be dependency specifiers
             }
