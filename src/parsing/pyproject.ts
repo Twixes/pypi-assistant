@@ -1,10 +1,10 @@
 import { LooseProjectNameRequirement, parsePipRequirementsLineLoosely, Requirement } from 'pip-requirements-js'
 import { parseTOML, traverseNodes } from 'toml-eslint-parser'
-import { SourceLocation, TOMLArray, TOMLKeyValue, TOMLNode, TOMLTable } from 'toml-eslint-parser/lib/ast'
+import { TOMLArray, TOMLKeyValue, TOMLNode, TOMLTable } from 'toml-eslint-parser/lib/ast'
 import { Visitor } from 'toml-eslint-parser/lib/traverse'
 import { TextDocumentLike, RawRange } from './types'
 
-class PoetryVisitor implements Visitor<TOMLNode> {
+class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
     /** Current table path. */
     private pathStack: (string | number)[] = []
 
@@ -95,7 +95,7 @@ class PoetryVisitor implements Visitor<TOMLNode> {
 export function extractRequirementsFromPyprojectToml(
     document: TextDocumentLike
 ): [LooseProjectNameRequirement, RawRange][] {
-    const visitor = new PoetryVisitor()
+    const visitor = new PyprojectTOMLVisitor()
     traverseNodes(parseTOML(document.getText()), visitor)
     return visitor.dependencies
 }
