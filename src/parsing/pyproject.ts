@@ -22,6 +22,7 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
         } else if (node.type === 'TOMLArray') {
             this.potentiallyRegisterPep631Dependency(node)
             this.potentiallyRegisterUVDependency(node)
+            this.potentiallyRegisterPep735Dependency(node)
         }
     }
 
@@ -110,6 +111,29 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             this.pathStack[2] === 'override-dependencies'
 
         if (!isUnderConstraintDependencies && !isUnderDevDependencies && !isUnderOverrideDependencies) {
+            return
+        }
+        for (const item of node.elements) {
+            if (item.type !== 'TOMLValue' || typeof item.value !== 'string' || !item.value) {
+                continue // Only non-empty strings can be dependency specifiers
+            }
+            let requirement: Requirement | null
+            try {
+                requirement = parsePipRequirementsLineLoosely(item.value)
+            } catch {
+                continue
+            }
+            if (requirement?.type !== 'ProjectName') continue
+            this.dependencies.push([
+                requirement,
+                [item.loc.start.line - 1, item.loc.start.column, item.loc.end.line - 1, item.loc.end.column],
+            ])
+        }
+    }
+
+    private potentiallyRegisterPep735Dependency(node: TOMLArray): void {
+        const isUnderDependencyGroups = this.pathStack.length === 2 && this.pathStack[0] === 'dependency-groups' // pathStack[1] is arbitrary here - it's the name of the group
+        if (!isUnderDependencyGroups) {
             return
         }
         for (const item of node.elements) {

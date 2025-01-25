@@ -177,3 +177,31 @@ describe('extractRequirementsFromPyprojectToml with uv', () => {
         expect(result).toEqual([[{ name: 'werkzeug', type: 'ProjectName' }, [1, 25, 1, 42]]])
     })
 })
+
+describe('extractRequirementsFromPyprojectToml with PEP 735', () => {
+    it('should extract requirements from dependency-groups', () => {
+        const document = makeTextDocumentLike(['[dependency-groups]', 'test = ["pytest>7", "coverage"]'])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([
+            [{ name: 'pytest', type: 'ProjectName' }, [1, 8, 1, 18]],
+            [{ name: 'coverage', type: 'ProjectName' }, [1, 20, 1, 30]],
+        ])
+    })
+
+    it('should extract requirements from dependency-groups, ignoring include-group', () => {
+        const document = makeTextDocumentLike([
+            '[dependency-groups]',
+            'coverage = ["coverage[toml]"]',
+            'test = ["pytest>7", {include-group = "coverage"}]',
+        ])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([
+            [{ name: 'coverage', type: 'ProjectName' }, [1, 12, 1, 28]],
+            [{ name: 'pytest', type: 'ProjectName' }, [2, 8, 2, 18]],
+        ])
+    })
+})
