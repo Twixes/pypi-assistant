@@ -21,6 +21,7 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             this.potentiallyRegisterPoetryDependency(node)
         } else if (node.type === 'TOMLArray') {
             this.potentiallyRegisterPep631Dependency(node)
+            this.potentiallyRegisterUVDependency(node)
         }
     }
 
@@ -71,6 +72,44 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             this.pathStack[0] === 'project' &&
             this.pathStack[1] === 'optional-dependencies' // pathStack[2] is arbitrary here - it's the name of the extra
         if (!isUnderRequiredDependencies && !isUnderOptionalDependencies) {
+            return
+        }
+        for (const item of node.elements) {
+            if (item.type !== 'TOMLValue' || typeof item.value !== 'string' || !item.value) {
+                continue // Only non-empty strings can be dependency specifiers
+            }
+            let requirement: Requirement | null
+            try {
+                requirement = parsePipRequirementsLineLoosely(item.value)
+            } catch {
+                continue
+            }
+            if (requirement?.type !== 'ProjectName') continue
+            this.dependencies.push([
+                requirement,
+                [item.loc.start.line - 1, item.loc.start.column, item.loc.end.line - 1, item.loc.end.column],
+            ])
+        }
+    }
+
+    private potentiallyRegisterUVDependency(node: TOMLArray): void {
+        const isUnderConstraintDependencies =
+            this.pathStack.length === 3 &&
+            this.pathStack[0] === 'tool' &&
+            this.pathStack[1] === 'uv' &&
+            this.pathStack[2] === 'constraint-dependencies'
+        const isUnderDevDependencies =
+            this.pathStack.length === 3 &&
+            this.pathStack[0] === 'tool' &&
+            this.pathStack[1] === 'uv' &&
+            this.pathStack[2] === 'dev-dependencies'
+        const isUnderOverrideDependencies =
+            this.pathStack.length === 3 &&
+            this.pathStack[0] === 'tool' &&
+            this.pathStack[1] === 'uv' &&
+            this.pathStack[2] === 'override-dependencies'
+
+        if (!isUnderConstraintDependencies && !isUnderDevDependencies && !isUnderOverrideDependencies) {
             return
         }
         for (const item of node.elements) {

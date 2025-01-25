@@ -151,3 +151,29 @@ describe('extractRequirementsFromPyprojectToml with PEP 631', () => {
         ])
     })
 })
+
+describe('extractRequirementsFromPyprojectToml with uv', () => {
+    it('should extract requirements from constraint-dependencies', () => {
+        const document = makeTextDocumentLike(['[tool.uv]', 'constraint-dependencies = ["grpcio<1.65"]'])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([[{ name: 'grpcio', type: 'ProjectName' }, [1, 27, 1, 40]]])
+    })
+
+    it('should extract requirements from dev-dependencies', () => {
+        const document = makeTextDocumentLike(['[tool.uv]', 'dev-dependencies = ["ruff==0.5.0"]'])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([[{ name: 'ruff', type: 'ProjectName' }, [1, 20, 1, 33]]])
+    })
+
+    it('should extract requirements from override-dependencies', () => {
+        const document = makeTextDocumentLike(['[tool.uv]', 'override-dependencies = ["werkzeug==2.3.0"]'])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([[{ name: 'werkzeug', type: 'ProjectName' }, [1, 25, 1, 42]]])
+    })
+})
