@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.0]
+
+### Added
+
+-   Support for [PEP 735](https://peps.python.org/pep-0735/) + [uv](https://docs.astral.sh/uv/reference/settings/) dependencies specified in `pyproject.toml`! Thanks to [@serl](https://github.com/serl) for contributing in [#36](https://github.com/Twixes/pypi-assistant/pull/36).
+
 ## [2.1.0]
 
 ### Added
@@ -10,7 +16,7 @@
 
 ### Added
 
--   Support for [Poetry](https://python-poetry.org/docs/pyproject/#dependencies-and-dependency-groups) dependencies specified in `pyproject.toml`! Thanks to [@alex-way](https://github.com/alex-way) for contributing in [#10](https://github.com/Twixes/pypi-assistant/pull/25).
+-   Support for [Poetry](https://python-poetry.org/docs/pyproject/#dependencies-and-dependency-groups) dependencies specified in `pyproject.toml`! Thanks to [@alex-way](https://github.com/alex-way) for contributing in [#25](https://github.com/Twixes/pypi-assistant/pull/25).
 
 ## [1.2.4]
 
