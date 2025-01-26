@@ -151,3 +151,57 @@ describe('extractRequirementsFromPyprojectToml with PEP 631', () => {
         ])
     })
 })
+
+describe('extractRequirementsFromPyprojectToml with uv', () => {
+    it('should extract requirements from constraint-dependencies', () => {
+        const document = makeTextDocumentLike(['[tool.uv]', 'constraint-dependencies = ["grpcio<1.65"]'])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([[{ name: 'grpcio', type: 'ProjectName' }, [1, 27, 1, 40]]])
+    })
+
+    it('should extract requirements from dev-dependencies', () => {
+        const document = makeTextDocumentLike(['[tool.uv]', 'dev-dependencies = ["ruff==0.5.0"]'])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([[{ name: 'ruff', type: 'ProjectName' }, [1, 20, 1, 33]]])
+    })
+
+    it('should extract requirements from override-dependencies', () => {
+        const document = makeTextDocumentLike(['[tool.uv]', 'override-dependencies = ["werkzeug==2.3.0"]'])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([[{ name: 'werkzeug', type: 'ProjectName' }, [1, 25, 1, 42]]])
+    })
+})
+
+describe('extractRequirementsFromPyprojectToml with PEP 735', () => {
+    it('should extract requirements from dependency-groups', () => {
+        const document = makeTextDocumentLike(['[dependency-groups]', 'test = ["pytest>7", "coverage"]'])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([
+            [{ name: 'pytest', type: 'ProjectName' }, [1, 8, 1, 18]],
+            [{ name: 'coverage', type: 'ProjectName' }, [1, 20, 1, 30]],
+        ])
+    })
+
+    it('should extract requirements from dependency-groups, ignoring include-group', () => {
+        const document = makeTextDocumentLike([
+            '[dependency-groups]',
+            'coverage = ["coverage[toml]"]',
+            'test = ["pytest>7", {include-group = "coverage"}]',
+        ])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([
+            [{ name: 'coverage', type: 'ProjectName' }, [1, 12, 1, 28]],
+            [{ name: 'pytest', type: 'ProjectName' }, [2, 8, 2, 18]],
+        ])
+    })
+})

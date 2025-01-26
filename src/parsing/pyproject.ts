@@ -21,6 +21,8 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             this.potentiallyRegisterPoetryDependency(node)
         } else if (node.type === 'TOMLArray') {
             this.potentiallyRegisterPep631Dependency(node)
+            this.potentiallyRegisterPep735Dependency(node)
+            this.potentiallyRegisterUvDependency(node)
         }
     }
 
@@ -73,7 +75,42 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
         if (!isUnderRequiredDependencies && !isUnderOptionalDependencies) {
             return
         }
-        for (const item of node.elements) {
+        this.registerElementsAsDependencies(node.elements)
+    }
+
+    private potentiallyRegisterUvDependency(node: TOMLArray): void {
+        const isUnderConstraintDependencies =
+            this.pathStack.length === 3 &&
+            this.pathStack[0] === 'tool' &&
+            this.pathStack[1] === 'uv' &&
+            this.pathStack[2] === 'constraint-dependencies'
+        const isUnderDevDependencies =
+            this.pathStack.length === 3 &&
+            this.pathStack[0] === 'tool' &&
+            this.pathStack[1] === 'uv' &&
+            this.pathStack[2] === 'dev-dependencies'
+        const isUnderOverrideDependencies =
+            this.pathStack.length === 3 &&
+            this.pathStack[0] === 'tool' &&
+            this.pathStack[1] === 'uv' &&
+            this.pathStack[2] === 'override-dependencies'
+
+        if (!isUnderConstraintDependencies && !isUnderDevDependencies && !isUnderOverrideDependencies) {
+            return
+        }
+        this.registerElementsAsDependencies(node.elements)
+    }
+
+    private potentiallyRegisterPep735Dependency(node: TOMLArray): void {
+        const isUnderDependencyGroups = this.pathStack.length === 2 && this.pathStack[0] === 'dependency-groups' // pathStack[1] is arbitrary here - it's the name of the group
+        if (!isUnderDependencyGroups) {
+            return
+        }
+        this.registerElementsAsDependencies(node.elements)
+    }
+
+    private registerElementsAsDependencies(elements: TOMLNode[]): void {
+        for (const item of elements) {
             if (item.type !== 'TOMLValue' || typeof item.value !== 'string' || !item.value) {
                 continue // Only non-empty strings can be dependency specifiers
             }
