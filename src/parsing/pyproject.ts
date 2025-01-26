@@ -21,8 +21,8 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             this.potentiallyRegisterPoetryDependency(node)
         } else if (node.type === 'TOMLArray') {
             this.potentiallyRegisterPep631Dependency(node)
-            this.potentiallyRegisterUVDependency(node)
             this.potentiallyRegisterPep735Dependency(node)
+            this.potentiallyRegisterUvDependency(node)
         }
     }
 
@@ -78,7 +78,7 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
         this.registerElementsAsDependencies(node.elements)
     }
 
-    private potentiallyRegisterUVDependency(node: TOMLArray): void {
+    private potentiallyRegisterUvDependency(node: TOMLArray): void {
         const isUnderConstraintDependencies =
             this.pathStack.length === 3 &&
             this.pathStack[0] === 'tool' &&
