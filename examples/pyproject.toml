@@ -28,3 +28,18 @@ requests = "^2.22.0"
 [tool.poetry.group.test.dependencies]
 pytest = "^6.0.0"
 pytest-mock = "*"
+
+[dependency-groups]
+group-a = ["foo"]
+group-b = ["foo>1.0"]
+group-c = ["foo<1.0"]
+all = [
+    "foo",
+    {include-group = "group-a"},
+    {include-group = "group-b"},
+    {include-group = "group-c"},
+]
+
+[tool.uv]
+constraint-dependencies = ["grpcio<1.65"]
+dev-dependencies = ["ruff==0.5.0"]
