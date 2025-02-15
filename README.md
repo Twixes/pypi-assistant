@@ -13,6 +13,6 @@ Supported formats:
 -   [PEP 631](https://peps.python.org/pep-0631/) – `pyproject.toml`'s `project.dependencies`/`project.optional-dependencies`
 -   [PEP 735](https://peps.python.org/pep-0735/) - `pyproject.toml`'s `dependency-groups`
 -   [uv](https://docs.astral.sh/uv/reference/settings/) - `pyproject.toml`'s `tool.uv.constraint-dependencies`/`tool.uv.dev-dependencies`/`tool.uv.override-dependencies`
--   [Pixi](https://pixi.sh/latest/advanced/pyproject_toml/) - `pyproject.toml`'s `tool.pixi.dependencies`/`tool.pixi.feature.*.dependencies`
+-   [Pixi](https://pixi.sh/latest/advanced/pyproject_toml/) - `pyproject.toml`'s `tool.pixi.pypi-dependencies`
 
 This extension depends on [Microsoft's official Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) for `pip requirements` language support.
