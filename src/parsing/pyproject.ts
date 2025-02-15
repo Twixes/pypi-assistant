@@ -69,27 +69,15 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
 
     private potentiallyRegisterPixiDependency(node: TOMLTable | TOMLKeyValue): void {
         if (this.pathStack[0] === 'tool' && this.pathStack[1] === 'pixi') {
-            const projectName: string | undefined = (() => {
-                if (
-                    (this.pathStack[2] as string) === 'dependencies' &&
-                    this.pathStack.length === 4 &&
-                    typeof this.pathStack[3] === 'string'
-                ) {
-                    // Basic dependencies
-                    return this.pathStack[3]
-                }
-                if (
-                    this.pathStack[2] === 'feature' &&
-                    this.pathStack[4] === 'dependencies' &&
-                    this.pathStack.length === 6 &&
-                    typeof this.pathStack[5] === 'string'
-                ) {
-                    // Dependency feature
-                    return this.pathStack[5]
-                }
-                return undefined
-            })()
-
+            let projectName: string | undefined
+            if (
+                (this.pathStack[2] as string) === 'pypi-dependencies' &&
+                this.pathStack.length === 4 &&
+                typeof this.pathStack[3] === 'string'
+            ) {
+                // Basic dependencies
+                projectName = this.pathStack[3]
+            }
             if (projectName) {
                 this.dependencies.push([
                     {
