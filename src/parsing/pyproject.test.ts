@@ -205,3 +205,43 @@ describe('extractRequirementsFromPyprojectToml with PEP 735', () => {
         ])
     })
 })
+
+describe('extractRequirementsFromPyprojectToml with Pixi', () => {
+    it('should extract basic requirements', () => {
+        const document = makeTextDocumentLike([
+            '[tool.pixi]',
+            'name = "pixi-demo"',
+            'version = "0.1.0"',
+            'description = "Test"',
+            'authors = ["Michael Matloka"]',
+            '',
+            '[tool.pixi.dependencies]',
+            'requests = "^2.22.0"',
+            'foo = "<6.6.6"',
+        ])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([
+            [{ name: 'requests', type: 'ProjectName' }, [7, 0, 7, 20]],
+            [{ name: 'foo', type: 'ProjectName' }, [8, 0, 8, 14]],
+        ])
+    })
+
+    it('should extract requirements from feature', () => {
+        const document = makeTextDocumentLike([
+            '[tool.pixi]',
+            'name = "pixi-demo"',
+            'version = "0.1.0"',
+            'description = "Test"',
+            'authors = ["Michael Matloka"]',
+            '',
+            '[tool.pixi.feature.test.dependencies]',
+            'baz = ">6.6.6"',
+        ])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([[{ name: 'baz', type: 'ProjectName' }, [7, 0, 7, 14]]])
+    })
+})

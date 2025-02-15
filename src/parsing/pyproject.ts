@@ -14,11 +14,13 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
         if (node.type === 'TOMLTable') {
             this.pathStack = node.resolvedKey.slice()
             this.potentiallyRegisterPoetryDependency(node)
+            this.potentiallyRegisterPixiDependency(node)
         } else if (node.type === 'TOMLKeyValue') {
             this.pathStack.push(
                 ...node.key.keys.map((key) => ('name' in key ? key.name : 'value' in key ? key.value : ''))
             )
             this.potentiallyRegisterPoetryDependency(node)
+            this.potentiallyRegisterPixiDependency(node)
         } else if (node.type === 'TOMLArray') {
             this.potentiallyRegisterPep631Dependency(node)
             this.potentiallyRegisterPep735Dependency(node)
@@ -52,6 +54,29 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             ) {
                 // Dependency group
                 projectName = this.pathStack[5]
+            }
+            if (projectName) {
+                this.dependencies.push([
+                    {
+                        name: projectName,
+                        type: 'ProjectName',
+                    },
+                    [node.loc.start.line - 1, node.loc.start.column, node.loc.end.line - 1, node.loc.end.column],
+                ])
+            }
+        }
+    }
+
+    private potentiallyRegisterPixiDependency(node: TOMLTable | TOMLKeyValue): void {
+        if (this.pathStack[0] === 'tool' && this.pathStack[1] === 'pixi') {
+            let projectName: string | undefined
+            if (
+                (this.pathStack[2] as string) === 'pypi-dependencies' &&
+                this.pathStack.length === 4 &&
+                typeof this.pathStack[3] === 'string'
+            ) {
+                // Basic dependencies
+                projectName = this.pathStack[3]
             }
             if (projectName) {
                 this.dependencies.push([
