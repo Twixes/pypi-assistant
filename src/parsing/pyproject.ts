@@ -23,6 +23,7 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             this.potentiallyRegisterPep631Dependency(node)
             this.potentiallyRegisterPep735Dependency(node)
             this.potentiallyRegisterUvDependency(node)
+            this.potentiallyRegisterBuildSystemDependency(node)
         }
     }
 
@@ -104,6 +105,15 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
     private potentiallyRegisterPep735Dependency(node: TOMLArray): void {
         const isUnderDependencyGroups = this.pathStack.length === 2 && this.pathStack[0] === 'dependency-groups' // pathStack[1] is arbitrary here - it's the name of the group
         if (!isUnderDependencyGroups) {
+            return
+        }
+        this.registerElementsAsDependencies(node.elements)
+    }
+
+    private potentiallyRegisterBuildSystemDependency(node: TOMLArray): void {
+        const isUnderBuildSystem =
+            this.pathStack.length === 2 && this.pathStack[0] === 'build-system' && this.pathStack[1] === 'requires'
+        if (!isUnderBuildSystem) {
             return
         }
         this.registerElementsAsDependencies(node.elements)

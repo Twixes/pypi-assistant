@@ -205,3 +205,35 @@ describe('extractRequirementsFromPyprojectToml with PEP 735', () => {
         ])
     })
 })
+
+describe('extractRequirementsFromPyprojectWithBuildSystem', () => {
+    it('should extract requirements from a pyproject.toml with a build-system', () => {
+        const document = makeTextDocumentLike([
+            '[build-system]',
+            'requires = ["poetry-core>=1.0.0"]',
+            'build-backend = "poetry.core.masonry.api"',
+        ])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([[{ name: 'poetry-core', type: 'ProjectName' }, [1, 12, 1, 32]]])
+    })
+
+    it('should identify each build-system dependency', () => {
+        const document = makeTextDocumentLike([
+            '[build-system]',
+            'requires = [',
+            '  "hatchling",',
+            '  "hatch-vcs",',
+            ']',
+            'build-backend = "hatchling.build"',
+        ])
+
+        const result = extractRequirementsFromPyprojectToml(document)
+
+        expect(result).toEqual([
+            [{ name: 'hatchling', type: 'ProjectName' }, [2, 2, 2, 13]],
+            [{ name: 'hatch-vcs', type: 'ProjectName' }, [3, 2, 3, 13]],
+        ])
+    })
+})
