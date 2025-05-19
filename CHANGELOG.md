@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.0]
+
+### Added
+
+-   Support for [`build-system.requires` in `pyproject.toml`](https://setuptools.pypa.io/en/latest/build_meta.html)! Thanks to [@edgarrmondragon](https://github.com/edgarrmondragon) for contributing in [#40](https://github.com/Twixes/pypi-assistant/pull/40).
+-   Support for [Pixi](https://pixi.sh/) dependency specification [in `pyproject.toml`](https://pixi.sh/latest/python/pyproject_toml/)! Thanks to [@ninoseki](https://github.com/ninoseki) for contributing in [#37](https://github.com/Twixes/pypi-assistant/pull/37).
+
 ## [2.2.0]
 
 ### Added
