@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import { ProjectNameRequirement } from 'pip-requirements-js'
+import * as semver from 'semver'
 import vscode from 'vscode'
 import { RequirementsParser } from './parsing'
 import { PyPI } from './pypi'
@@ -103,15 +104,65 @@ export class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLen
     }
 }
 
-export function activate(_: vscode.ExtensionContext) {
+export class PyPICompletionItemProvider implements vscode.CompletionItemProvider<vscode.CompletionItem> {
+    constructor(public requirementsParser: RequirementsParser, public pypi: PyPI) {}
+
+    provideCompletionItems(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        _token: vscode.CancellationToken,
+        _context: vscode.CompletionContext
+    ): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> {
+        // Check if the cursor is behind an '=' character otherwise we don't provide any completions
+        const line = document.lineAt(position).text.substring(0, position.character)
+        const match = line.match(/=\s*$/)
+        if (!match) {
+            return undefined
+        }
+
+        return (async () => {
+            try {
+                const requirements = this.requirementsParser.getAtPosition(document, position)
+                if (!requirements) {
+                    return undefined
+                }
+                const metadata = await pypi.fetchPackageMetadata(requirements[0])
+                const allVersions = Object.keys(metadata.releases)
+
+                // Sort versions: semver versions first (sorted by semver), then non-semver versions (sorted alphabetically)
+                const semverVersions = allVersions.filter((v) => semver.valid(v)).sort(semver.rcompare)
+                const nonSemverVersions = allVersions
+                    .filter((v) => !semver.valid(v))
+                    .sort()
+                    .reverse()
+                const versions = [...semverVersions, ...nonSemverVersions]
+
+                return versions.map((version, index) => {
+                    const item = new vscode.CompletionItem(version, vscode.CompletionItemKind.Constant)
+                    item.insertText = version
+                    item.sortText = String(index).padStart(5, '0')
+                    return item
+                })
+            } catch (err) {
+                console.error('Failed to provide PIP version code completion:', err)
+                return undefined
+            }
+        })()
+    }
+}
+
+export function activate(_context: vscode.ExtensionContext) {
     requirementsParser = new RequirementsParser()
     pypi = new PyPI()
     const hoverProvider = new PyPIHoverProvider(requirementsParser, pypi)
     const codeLensProvider = new PyPICodeLensProvider(requirementsParser, pypi)
+    const completionItemProvider = new PyPICompletionItemProvider(requirementsParser, pypi)
     vscode.languages.registerCodeLensProvider('pip-requirements', codeLensProvider)
     vscode.languages.registerHoverProvider('pip-requirements', hoverProvider)
+    vscode.languages.registerCompletionItemProvider('pip-requirements', completionItemProvider, '=', ' ')
     vscode.languages.registerCodeLensProvider('toml', codeLensProvider)
     vscode.languages.registerHoverProvider('toml', hoverProvider)
+    vscode.languages.registerCompletionItemProvider('toml', completionItemProvider, '=', ' ')
 }
 
 export function deactivate() {
