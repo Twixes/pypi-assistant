@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import { ProjectNameRequirement } from 'pip-requirements-js'
 import * as semver from 'semver'
 import vscode from 'vscode'
+import { outputChannel } from './output'
 import { RequirementsParser } from './parsing'
 import { PyPI } from './pypi'
 
@@ -104,6 +105,25 @@ export class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLen
     }
 }
 
+// Regex to check for a valid PIP requirement up to the cursor position and maybe a version after the curosor
+// TODO: Maybe use grammar parsing instead of regex to handle the format at one place only
+// Package name
+const nameRe = '(?<name>[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*)'
+// Optional extras
+const extrasRe = '(?<extras>\\[[A-Za-z0-9]+(?:\\s*,\\s*[A-Za-z0-9]+)*\\])?'
+// Operator
+const versionOpsRe = '(?<versionOps>(?:<=|>=|!=|==|===|<|>|~=))'
+// Chars that might be before the cursor inside of an operator
+const versionOpsPartOneRe = '(?<versionOpsPartOne>(?:[!=~]))'
+// Chars that might be after the cursor inside of an operator
+const versionOpsPartTwoRe = '(?<versionOpsPartTwo>(?:=|==))'
+// Version
+const versionRe = '(?<version>[A-Za-z0-9._*-+!]+)'
+// Regex that matches the part from package name to operator (handles operator parts)
+const requirementRegex = new RegExp(`^${nameRe}\\s*${extrasRe}\\s*(${versionOpsRe}\\s*|${versionOpsPartOneRe})?$`)
+// Regex that matches the part from operator to end of version (handles operator parts)
+const versionRegex = new RegExp(`^(?:\\s*${versionOpsRe}|${versionOpsPartTwoRe})?\\s*${versionRe}`)
+
 export class PyPICompletionItemProvider implements vscode.CompletionItemProvider<vscode.CompletionItem> {
     constructor(public requirementsParser: RequirementsParser, public pypi: PyPI) {}
 
@@ -113,20 +133,22 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
         _token: vscode.CancellationToken,
         _context: vscode.CompletionContext
     ): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> {
-        // Check if the cursor is behind an '=' character otherwise we don't provide any completions
-        const line = document.lineAt(position).text.substring(0, position.character)
-        const match = line.match(/=\s*$/)
-        if (!match) {
+        const line = document.lineAt(position).text
+        const beforeCursor = line.substring(0, position.character)
+
+        // Before cursor there must be a package name maybe extras and a version operator
+        const requirementMatch = beforeCursor.match(requirementRegex)
+        if (!requirementMatch) {
             return undefined
         }
 
         return (async () => {
             try {
-                const requirements = this.requirementsParser.getAtPosition(document, position)
-                if (!requirements) {
+                const requirement = this.requirementsParser.getAtPosition(document, position)
+                if (!requirement) {
                     return undefined
                 }
-                const metadata = await pypi.fetchPackageMetadata(requirements[0])
+                const metadata = await pypi.fetchPackageMetadata(requirement[0])
                 const allVersions = Object.keys(metadata.releases)
 
                 // Sort versions: semver versions first (sorted by semver), then non-semver versions (sorted alphabetically)
@@ -137,14 +159,59 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
                     .reverse()
                 const versions = [...semverVersions, ...nonSemverVersions]
 
-                return versions.map((version, index) => {
-                    const item = new vscode.CompletionItem(version, vscode.CompletionItemKind.Constant)
-                    item.insertText = version
+                // After the cursor there may be a version that we want to replace
+                const afterCursor = line.substring(position.character)
+                const versionMatch = afterCursor.match(versionRegex)
+
+                const op = requirementMatch.groups?.versionOps
+                const opPartOne = requirementMatch.groups?.versionOpsPartOne
+                const opTwo = versionMatch?.groups?.versionOps
+                const opPartTwo = versionMatch?.groups?.versionOpsPartTwo
+
+                // Build the suggested operator
+                let operator: string
+                if (opPartTwo) {
+                    // Cursor is before = or ==
+                    operator = opPartTwo
+                } else if (opTwo) {
+                    // Cursor is before a full valid operator
+                    operator = opTwo
+                } else if (opPartOne) {
+                    // Cursor is behind first char of a longer operator
+                    operator = opPartTwo ?? '='
+                } else if (op) {
+                    // Or cursor is behind a full valid operator
+                    operator = ''
+                } else {
+                    // No operator before and after the cursor
+                    operator = '=='
+                }
+
+                // Build all suggested items
+                const items = versions.map((version, index) => {
+                    // If a complete operator already exists, insert only version, otherwise operator + version
+                    const suggestionText =
+                        op && !opPartOne && !opTwo && !opPartTwo && !['<', '>', '=='].includes(op)
+                            ? version
+                            : `${operator} ${version}`
+
+                    const item = new vscode.CompletionItem(suggestionText, vscode.CompletionItemKind.Constant)
+                    item.insertText = suggestionText
                     item.sortText = String(index).padStart(5, '0')
+
+                    // If there is a version after the cursor, replace it
+                    if (versionMatch) {
+                        const start = position
+                        const end = position.translate(0, versionMatch[0].length)
+                        item.range = new vscode.Range(start, end)
+                    }
                     return item
                 })
+
+                outputChannel.appendLine(`Suggesting ${items.length} items`)
+                return items
             } catch (err) {
-                console.error('Failed to provide PIP version code completion:', err)
+                outputChannel.appendLine(`Failed to provide PIP version code completion: ${err}`)
                 return undefined
             }
         })()
@@ -157,12 +224,17 @@ export function activate(_context: vscode.ExtensionContext) {
     const hoverProvider = new PyPIHoverProvider(requirementsParser, pypi)
     const codeLensProvider = new PyPICodeLensProvider(requirementsParser, pypi)
     const completionItemProvider = new PyPICompletionItemProvider(requirementsParser, pypi)
+    const completionTriggerChars = ['=', '<', '>', '~', '!', ' ']
     vscode.languages.registerCodeLensProvider('pip-requirements', codeLensProvider)
     vscode.languages.registerHoverProvider('pip-requirements', hoverProvider)
-    vscode.languages.registerCompletionItemProvider('pip-requirements', completionItemProvider, '=', ' ')
+    vscode.languages.registerCompletionItemProvider(
+        'pip-requirements',
+        completionItemProvider,
+        ...completionTriggerChars
+    )
     vscode.languages.registerCodeLensProvider('toml', codeLensProvider)
     vscode.languages.registerHoverProvider('toml', hoverProvider)
-    vscode.languages.registerCompletionItemProvider('toml', completionItemProvider, '=', ' ')
+    vscode.languages.registerCompletionItemProvider('toml', completionItemProvider, ...completionTriggerChars)
 }
 
 export function deactivate() {
