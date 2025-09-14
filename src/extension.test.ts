@@ -620,4 +620,167 @@ describe('PyPICompletionItemProvider', () => {
             expect(items[0].insertText).toBe('2.28.0')
         })
     })
+
+    describe('pyproject.toml completion support', () => {
+        it('should provide version completions for project.dependencies', async () => {
+            const mockRequirement: ProjectNameRequirement = { name: 'requests', type: 'ProjectName' }
+
+            mockDocument.lineAt = jest.fn().mockReturnValue({
+                text: '    "requests"',
+            })
+            mockRequirementsParser.getAtPosition.mockReturnValue([mockRequirement, {} as any])
+            mockPypi.fetchPackageMetadata.mockResolvedValue(mockPackageMetadata)
+
+            const result = provider.provideCompletionItems(
+                mockDocument,
+                new mockVscode.Position(0, 13),
+                {} as any,
+                {} as any
+            )
+
+            const items = (await result) as any[]
+
+            expect(items).toHaveLength(4)
+            expect(items[0].label).toBe('==2.28.0')
+            expect(items[0].insertText).toBe('==2.28.0')
+        })
+
+        it('should provide version completions for project.dependencies with existing operator', async () => {
+            const mockRequirement: ProjectNameRequirement = { name: 'requests', type: 'ProjectName' }
+
+            mockDocument.lineAt = jest.fn().mockReturnValue({
+                text: '    "requests>="',
+            })
+            mockRequirementsParser.getAtPosition.mockReturnValue([mockRequirement, {} as any])
+            mockPypi.fetchPackageMetadata.mockResolvedValue(mockPackageMetadata)
+
+            const result = provider.provideCompletionItems(
+                mockDocument,
+                new mockVscode.Position(0, 15),
+                {} as any,
+                {} as any
+            )
+
+            const items = (await result) as any[]
+
+            expect(items).toHaveLength(4)
+            expect(items[0].label).toBe('>=2.28.0')
+            expect(items[0].insertText).toBe('2.28.0')
+        })
+
+        it('should provide version completions for project.optional-dependencies', async () => {
+            const mockRequirement: ProjectNameRequirement = { name: 'pytest', type: 'ProjectName' }
+
+            mockDocument.lineAt = jest.fn().mockReturnValue({
+                text: '    "pytest~="',
+            })
+            mockRequirementsParser.getAtPosition.mockReturnValue([mockRequirement, {} as any])
+            mockPypi.fetchPackageMetadata.mockResolvedValue(mockPackageMetadata)
+
+            const result = provider.provideCompletionItems(
+                mockDocument,
+                new mockVscode.Position(0, 13),
+                {} as any,
+                {} as any
+            )
+
+            const items = (await result) as any[]
+
+            expect(items).toHaveLength(4)
+            expect(items[0].label).toBe('~=2.28.0')
+            expect(items[0].insertText).toBe('2.28.0')
+        })
+
+        it('should provide version completions for dependency-groups (PEP 735)', async () => {
+            const mockRequirement: ProjectNameRequirement = { name: 'black', type: 'ProjectName' }
+
+            mockDocument.lineAt = jest.fn().mockReturnValue({
+                text: '    "black"',
+            })
+            mockRequirementsParser.getAtPosition.mockReturnValue([mockRequirement, {} as any])
+            mockPypi.fetchPackageMetadata.mockResolvedValue(mockPackageMetadata)
+
+            const result = provider.provideCompletionItems(
+                mockDocument,
+                new mockVscode.Position(0, 10),
+                {} as any,
+                {} as any
+            )
+
+            const items = (await result) as any[]
+
+            expect(items).toHaveLength(4)
+            expect(items[0].label).toBe('==2.28.0')
+            expect(items[0].insertText).toBe('==2.28.0')
+        })
+
+        it('should provide version completions for tool.uv.dev-dependencies', async () => {
+            const mockRequirement: ProjectNameRequirement = { name: 'ruff', type: 'ProjectName' }
+
+            mockDocument.lineAt = jest.fn().mockReturnValue({
+                text: '    "ruff=="',
+            })
+            mockRequirementsParser.getAtPosition.mockReturnValue([mockRequirement, {} as any])
+            mockPypi.fetchPackageMetadata.mockResolvedValue(mockPackageMetadata)
+
+            const result = provider.provideCompletionItems(
+                mockDocument,
+                new mockVscode.Position(0, 11),
+                {} as any,
+                {} as any
+            )
+
+            const items = (await result) as any[]
+
+            expect(items).toHaveLength(4)
+            expect(items[0].label).toBe('==2.28.0')
+            expect(items[0].insertText).toBe('2.28.0') // Complete operator, so just version
+        })
+
+        it('should provide version completions for build-system.requires', async () => {
+            const mockRequirement: ProjectNameRequirement = { name: 'setuptools', type: 'ProjectName' }
+
+            mockDocument.lineAt = jest.fn().mockReturnValue({
+                text: '    "setuptools!="',
+            })
+            mockRequirementsParser.getAtPosition.mockReturnValue([mockRequirement, {} as any])
+            mockPypi.fetchPackageMetadata.mockResolvedValue(mockPackageMetadata)
+
+            const result = provider.provideCompletionItems(
+                mockDocument,
+                new mockVscode.Position(0, 17),
+                {} as any,
+                {} as any
+            )
+
+            const items = (await result) as any[]
+
+            expect(items).toHaveLength(4)
+            expect(items[0].label).toBe('!=2.28.0')
+            expect(items[0].insertText).toBe('2.28.0')
+        })
+
+        it('should handle package names with extras in pyproject.toml', async () => {
+            const mockRequirement: ProjectNameRequirement = { name: 'requests', type: 'ProjectName' }
+
+            mockDocument.lineAt = jest.fn().mockReturnValue({
+                text: '    "requests[security]=="',
+            })
+            mockRequirementsParser.getAtPosition.mockReturnValue([mockRequirement, {} as any])
+            mockPypi.fetchPackageMetadata.mockResolvedValue(mockPackageMetadata)
+
+            const result = provider.provideCompletionItems(
+                mockDocument,
+                new mockVscode.Position(0, 25),
+                {} as any,
+                {} as any
+            )
+
+            const items = (await result) as any[]
+
+            expect(items).toHaveLength(4)
+            expect(items[0].label).toBe('==2.28.0')
+            expect(items[0].insertText).toBe('2.28.0')
+        })
+    })
 })

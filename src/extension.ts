@@ -124,6 +124,34 @@ const requirementRegex = new RegExp(`^${nameRe}\\s*${extrasRe}\\s*(${versionOpsR
 // Regex that matches the part from operator to end of version (handles operator parts)
 const versionRegex = new RegExp(`^(?:\\s*${versionOpsRe}|${versionOpsPartTwoRe})?\\s*${versionRe}?`)
 
+function extractQuotedContent(line: string, position: number): { beforeCursor: string; afterCursor: string } | null {
+    // Find the opening quote before the cursor
+    let openQuotePos = -1
+    for (let i = position - 1; i >= 0; i--) {
+        if (line[i] === '"' && (i === 0 || line[i - 1] !== '\\')) {
+            openQuotePos = i
+            break
+        }
+    }
+
+    if (openQuotePos === -1) return null
+
+    // Find the closing quote after the cursor
+    let closeQuotePos = -1
+    for (let i = position; i < line.length; i++) {
+        if (line[i] === '"' && (i === 0 || line[i - 1] !== '\\')) {
+            closeQuotePos = i
+            break
+        }
+    }
+
+    // Extract content inside quotes up to cursor and after cursor
+    const beforeCursor = line.substring(openQuotePos + 1, position)
+    const afterCursor = closeQuotePos !== -1 ? line.substring(position, closeQuotePos) : ''
+
+    return { beforeCursor, afterCursor }
+}
+
 export class PyPICompletionItemProvider implements vscode.CompletionItemProvider<vscode.CompletionItem> {
     constructor(public requirementsParser: RequirementsParser, public pypi: PyPI) {}
 
@@ -134,10 +162,23 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
         _context: vscode.CompletionContext
     ): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> {
         const line = document.lineAt(position).text
-        const beforeCursor = line.substring(0, position.character)
+        let beforeCursor = line.substring(0, position.character)
+        let afterCursor = line.substring(position.character)
+        let requirementMatch = beforeCursor.match(requirementRegex)
+        let versionMatch = afterCursor.match(versionRegex)
+
+        // If regular regex fails, try TOML quoted format
+        if (!requirementMatch) {
+            const quotedContent = extractQuotedContent(line, position.character)
+            if (quotedContent) {
+                beforeCursor = quotedContent.beforeCursor
+                afterCursor = quotedContent.afterCursor
+                requirementMatch = beforeCursor.match(requirementRegex)
+                versionMatch = afterCursor.match(versionRegex)
+            }
+        }
 
         // Before cursor there must be a package name maybe extras and a version operator
-        const requirementMatch = beforeCursor.match(requirementRegex)
         if (!requirementMatch) {
             return undefined
         }
@@ -158,12 +199,10 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
                     .reverse()
                 const allVersions = semverVersions.concat(nonSemverVersions)
 
-                // After the cursor there may be a version that we want to replace
-                const afterCursor = line.substring(position.character)
-                const versionMatch = afterCursor.match(versionRegex)
+                // versionMatch was already calculated above based on context (regular or TOML)
 
-                const op = requirementMatch.groups?.versionOps
-                const opPartOne = requirementMatch.groups?.versionOpsPartOne
+                const op = requirementMatch!.groups?.versionOps
+                const opPartOne = requirementMatch!.groups?.versionOpsPartOne
                 const opTwo = versionMatch?.groups?.versionOps
                 const opPartTwo = versionMatch?.groups?.versionOpsPartTwo
 
