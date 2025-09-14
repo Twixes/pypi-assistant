@@ -141,23 +141,22 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
         if (!requirementMatch) {
             return undefined
         }
+        const requirement = this.requirementsParser.getAtPosition(document, position)
+        if (!requirement) {
+            return undefined
+        }
 
-        return (async () => {
+        return new Promise(async (resolve) => {
             try {
-                const requirement = this.requirementsParser.getAtPosition(document, position)
-                if (!requirement) {
-                    return undefined
-                }
                 const metadata = await pypi.fetchPackageMetadata(requirement[0])
-                const allVersions = Object.keys(metadata.releases)
-
+                const rawVersions = Object.keys(metadata.releases)
                 // Sort versions: semver versions first (sorted by semver), then non-semver versions (sorted alphabetically)
-                const semverVersions = allVersions.filter((v) => semver.valid(v)).sort(semver.rcompare)
-                const nonSemverVersions = allVersions
+                const semverVersions = rawVersions.filter((v) => semver.valid(v)).sort(semver.rcompare)
+                const nonSemverVersions = rawVersions
                     .filter((v) => !semver.valid(v))
                     .sort()
                     .reverse()
-                const versions = [...semverVersions, ...nonSemverVersions]
+                const allVersions = semverVersions.concat(nonSemverVersions)
 
                 // After the cursor there may be a version that we want to replace
                 const afterCursor = line.substring(position.character)
@@ -170,33 +169,40 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
 
                 // Build the suggested operator
                 let operator: string
-                if (opPartTwo) {
+                let finalOperator: string
+                if (opPartOne) {
+                    // Cursor is behind first char of a longer operator
+                    operator = opPartTwo ?? '='
+                    finalOperator = `${opPartOne}${opPartTwo ?? '='}`
+                } else if (opPartTwo) {
                     // Cursor is before = or ==
                     operator = opPartTwo
+                    finalOperator = '=='
                 } else if (opTwo) {
                     // Cursor is before a full valid operator
                     operator = opTwo
-                } else if (opPartOne) {
-                    // Cursor is behind first char of a longer operator
-                    operator = opPartTwo ?? '='
+                    finalOperator = opTwo
                 } else if (op) {
                     // Or cursor is behind a full valid operator
                     operator = ''
+                    finalOperator = op
                 } else {
                     // No operator before and after the cursor
                     operator = '=='
+                    finalOperator = '=='
                 }
 
                 // Build all suggested items
-                const items = versions.map((version, index) => {
+                const items = allVersions.map((version, index) => {
+                    const item = new vscode.CompletionItem(
+                        `${finalOperator}${version}`,
+                        vscode.CompletionItemKind.Constant
+                    )
                     // If a complete operator already exists, insert only version, otherwise operator + version
-                    const suggestionText =
+                    item.insertText =
                         op && !opPartOne && !opTwo && !opPartTwo && !['<', '>', '=='].includes(op)
                             ? version
-                            : `${operator} ${version}`
-
-                    const item = new vscode.CompletionItem(suggestionText, vscode.CompletionItemKind.Constant)
-                    item.insertText = suggestionText
+                            : `${operator}${version}`
                     item.sortText = String(index).padStart(5, '0')
 
                     // If there is a version after the cursor, replace it
@@ -209,12 +215,12 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
                 })
 
                 outputChannel.appendLine(`Suggesting ${items.length} items`)
-                return items
+                resolve(items)
             } catch (err) {
                 outputChannel.appendLine(`Failed to provide PIP version code completion: ${err}`)
-                return undefined
+                resolve(undefined)
             }
-        })()
+        })
     }
 }
 
