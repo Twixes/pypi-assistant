@@ -114,7 +114,7 @@ const extrasRe = '(?<extras>\\[[A-Za-z0-9]+(?:\\s*,\\s*[A-Za-z0-9]+)*\\])?'
 // Operator
 const versionOpsRe = '(?<versionOps>(?:<=|>=|!=|==|===|<|>|~=))'
 // Chars that might be before the cursor inside of an operator
-const versionOpsPartOneRe = '(?<versionOpsPartOne>(?:[!=~]))'
+const versionOpsPartOneRe = '(?<versionOpsPartOne>(?:[!=~<>=]))'
 // Chars that might be after the cursor inside of an operator
 const versionOpsPartTwoRe = '(?<versionOpsPartTwo>(?:=|==))'
 // Version
@@ -122,7 +122,7 @@ const versionRe = '(?<version>[A-Za-z0-9._*-+!]+)'
 // Regex that matches the part from package name to operator (handles operator parts)
 const requirementRegex = new RegExp(`^${nameRe}\\s*${extrasRe}\\s*(${versionOpsRe}\\s*|${versionOpsPartOneRe})?$`)
 // Regex that matches the part from operator to end of version (handles operator parts)
-const versionRegex = new RegExp(`^(?:\\s*${versionOpsRe}|${versionOpsPartTwoRe})?\\s*${versionRe}`)
+const versionRegex = new RegExp(`^(?:\\s*${versionOpsRe}|${versionOpsPartTwoRe})?\\s*${versionRe}?`)
 
 export class PyPICompletionItemProvider implements vscode.CompletionItemProvider<vscode.CompletionItem> {
     constructor(public requirementsParser: RequirementsParser, public pypi: PyPI) {}
@@ -148,7 +148,7 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
 
         return new Promise(async (resolve) => {
             try {
-                const metadata = await pypi.fetchPackageMetadata(requirement[0])
+                const metadata = await this.pypi.fetchPackageMetadata(requirement[0])
                 const rawVersions = Object.keys(metadata.releases)
                 // Sort versions: semver versions first (sorted by semver), then non-semver versions (sorted alphabetically)
                 const semverVersions = rawVersions.filter((v) => semver.valid(v)).sort(semver.rcompare)
@@ -167,17 +167,42 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
                 const opTwo = versionMatch?.groups?.versionOps
                 const opPartTwo = versionMatch?.groups?.versionOpsPartTwo
 
-                // Build the suggested operator
+                // Build the suggested operator by analyzing the context
                 let operator: string
                 let finalOperator: string
-                if (opPartOne) {
-                    // Cursor is behind first char of a longer operator
-                    operator = opPartTwo ?? '='
-                    finalOperator = `${opPartOne}${opPartTwo ?? '='}`
+
+                // Check for split operators (cursor between parts)
+                if ((op === '>' || op === '<' || op === '!' || op === '~') && opPartTwo === '=') {
+                    // Special case: cursor between > and =, < and =, ! and =, or ~ and =
+                    finalOperator = `${op}${opPartTwo}`
+                    operator = opPartTwo
+                } else if (opPartOne === '=' && opPartTwo === '=') {
+                    // Cursor between first and second = in ==
+                    finalOperator = '=='
+                    operator = ''
+                } else if (op === '==' && opPartTwo === '=') {
+                    // Cursor between second and third = in ===
+                    finalOperator = '==='
+                    operator = opPartTwo
+                } else if (opPartOne && opPartTwo) {
+                    // Cursor is between two parts of an operator (generic case)
+                    const fullOp = `${opPartOne}${opPartTwo}`
+                    finalOperator = fullOp
+                    operator = opPartTwo
+                } else if (opPartOne) {
+                    // Cursor is after first char of a longer operator
+                    if (opPartOne === '=') {
+                        // Single = should become ==
+                        operator = '='
+                        finalOperator = '=='
+                    } else {
+                        operator = '='
+                        finalOperator = `${opPartOne}=`
+                    }
                 } else if (opPartTwo) {
                     // Cursor is before = or ==
                     operator = opPartTwo
-                    finalOperator = '=='
+                    finalOperator = `=${opPartTwo}`
                 } else if (opTwo) {
                     // Cursor is before a full valid operator
                     operator = opTwo
@@ -198,11 +223,12 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
                         `${finalOperator}${version}`,
                         vscode.CompletionItemKind.Constant
                     )
-                    // If a complete operator already exists, insert only version, otherwise operator + version
-                    item.insertText =
-                        op && !opPartOne && !opTwo && !opPartTwo && !['<', '>', '=='].includes(op)
-                            ? version
-                            : `${operator}${version}`
+                    // If a complete operator already exists and no partial operators, insert only version
+                    if (op && !opPartOne && !opPartTwo) {
+                        item.insertText = version
+                    } else {
+                        item.insertText = `${operator}${version}`
+                    }
                     item.sortText = String(index).padStart(5, '0')
 
                     // If there is a version after the cursor, replace it
