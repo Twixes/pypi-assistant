@@ -22,9 +22,57 @@ describe('extractRequirementsFromPipRequirements', () => {
         const result = extractRequirementsFromPipRequirements(document)
 
         expect(result).toEqual([
-            [{ name: 'package1', type: 'ProjectName' }, [1, 0, 1, 13]],
-            [{ name: 'package2', type: 'ProjectName' }, [2, 0, 2, 15]],
-            [{ name: 'package3', type: 'ProjectName' }, [3, 0, 3, 13]],
+            [
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        name: expect.objectContaining({ data: 'package1' }),
+                        type: 'ProjectName',
+                        versionSpec: expect.arrayContaining([
+                            expect.objectContaining({
+                                data: expect.objectContaining({
+                                    operator: expect.objectContaining({ data: '==' }),
+                                    version: expect.objectContaining({ data: '1.0.0' }),
+                                }),
+                            }),
+                        ]),
+                    }),
+                }),
+                [1, 0, 1, 13],
+            ],
+            [
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        name: expect.objectContaining({ data: 'package2' }),
+                        type: 'ProjectName',
+                        versionSpec: expect.arrayContaining([
+                            expect.objectContaining({
+                                data: expect.objectContaining({
+                                    operator: expect.objectContaining({ data: '==' }),
+                                    version: expect.objectContaining({ data: '2.0.0' }),
+                                }),
+                            }),
+                        ]),
+                    }),
+                }),
+                [2, 0, 2, 15],
+            ],
+            [
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        name: expect.objectContaining({ data: 'package3' }),
+                        type: 'ProjectName',
+                        versionSpec: expect.arrayContaining([
+                            expect.objectContaining({
+                                data: expect.objectContaining({
+                                    operator: expect.objectContaining({ data: '==' }),
+                                    version: expect.objectContaining({ data: '3.0.0' }),
+                                }),
+                            }),
+                        ]),
+                    }),
+                }),
+                [3, 0, 3, 13],
+            ],
         ])
     })
 })

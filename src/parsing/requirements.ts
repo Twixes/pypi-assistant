@@ -1,19 +1,20 @@
-import { LooseProjectNameRequirement, Requirement, parsePipRequirementsLineLoosely } from 'pip-requirements-js'
+import { LooseProjectNameRequirementWithLocation, parsePipRequirementsLineLoosely } from 'pip-requirements-js'
 import { TextDocumentLike, RawRange } from './types'
 
 export function extractRequirementsFromPipRequirements(
     document: TextDocumentLike
-): [LooseProjectNameRequirement, RawRange][] {
-    const requirements: [LooseProjectNameRequirement, RawRange][] = []
+): [LooseProjectNameRequirementWithLocation, RawRange][] {
+    const requirements: [LooseProjectNameRequirementWithLocation, RawRange][] = []
     for (let line = 0; line < document.lineCount; line++) {
-        let requirement: Requirement | null
+        let requirement: LooseProjectNameRequirementWithLocation | null
         const { text, range } = document.lineAt(line)
         try {
-            requirement = parsePipRequirementsLineLoosely(text)
+            requirement = parsePipRequirementsLineLoosely(text, { includeLocations: true })
         } catch {
             continue
         }
-        if (requirement?.type !== 'ProjectName') continue
+        if (requirement?.data.type !== 'ProjectName') continue
+
         requirements.push([requirement, [range.start.line, range.start.character, range.end.line, range.end.character]])
     }
     return requirements

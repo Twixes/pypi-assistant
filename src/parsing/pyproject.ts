@@ -1,14 +1,19 @@
-import { LooseProjectNameRequirement, parsePipRequirementsLineLoosely, Requirement } from 'pip-requirements-js'
+import {
+    LooseProjectNameRequirement,
+    LooseProjectNameRequirementWithLocation,
+    parsePipRequirementsLineLoosely,
+    Requirement,
+} from 'pip-requirements-js'
 import { parseTOML, traverseNodes } from 'toml-eslint-parser'
 import { TOMLArray, TOMLKeyValue, TOMLNode, TOMLTable } from 'toml-eslint-parser/lib/ast'
 import { Visitor } from 'toml-eslint-parser/lib/traverse'
-import { TextDocumentLike, RawRange } from './types'
+import { TextDocumentLike, RawRange, RequirementFound } from './types'
 
 class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
     /** Current table path. */
     private pathStack: (string | number)[] = []
 
-    public dependencies: [LooseProjectNameRequirement, RawRange][] = []
+    public dependencies: [RequirementFound, RawRange][] = []
 
     public enterNode(node: TOMLNode) {
         if (node.type === 'TOMLTable') {
@@ -58,10 +63,7 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             }
             if (projectName) {
                 this.dependencies.push([
-                    {
-                        name: projectName,
-                        type: 'ProjectName',
-                    },
+                    projectName,
                     [node.loc.start.line - 1, node.loc.start.column, node.loc.end.line - 1, node.loc.end.column],
                 ])
             }
@@ -77,10 +79,7 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             typeof this.pathStack[3] === 'string'
         ) {
             this.dependencies.push([
-                {
-                    name: this.pathStack[3],
-                    type: 'ProjectName',
-                },
+                this.pathStack[3],
                 [node.loc.start.line - 1, node.loc.start.column, node.loc.end.line - 1, node.loc.end.column],
             ])
         }
@@ -144,24 +143,47 @@ class PyprojectTOMLVisitor implements Visitor<TOMLNode> {
             if (item.type !== 'TOMLValue' || typeof item.value !== 'string' || !item.value) {
                 continue // Only non-empty strings can be dependency specifiers
             }
-            let requirement: Requirement | null
+            let requirement: LooseProjectNameRequirementWithLocation | null
             try {
-                requirement = parsePipRequirementsLineLoosely(item.value)
+                requirement = parsePipRequirementsLineLoosely(item.value, { includeLocations: true })
             } catch {
                 continue
             }
-            if (requirement?.type !== 'ProjectName') continue
+            if (requirement?.data.type !== 'ProjectName') continue
+
+            // Adjust location indices to account for the opening quote in TOML string
+            // TOML strings are quoted, so content starts at item.loc.start.column + 1
+            const startOfRequirement = item.loc.start.column + 1
+            const endOfRequirement = item.loc.end.column - 1
+            this.adjustRequirementLocations(requirement, startOfRequirement)
+
             this.dependencies.push([
                 requirement,
-                [item.loc.start.line - 1, item.loc.start.column, item.loc.end.line - 1, item.loc.end.column],
+                [item.loc.start.line - 1, startOfRequirement, item.loc.end.line - 1, endOfRequirement],
             ])
+        }
+    }
+
+    /** Adjust the requirement locations to account for the beginning quote " */
+    private adjustRequirementLocations(requirement: LooseProjectNameRequirementWithLocation, offset: number): void {
+        requirement.data.name.location.startIdx += offset
+        requirement.data.name.location.endIdx += offset
+        if (requirement.data.versionSpec) {
+            for (const spec of requirement.data.versionSpec) {
+                spec.location.startIdx += offset
+                spec.location.endIdx += offset
+                spec.data.operator.location.startIdx += offset
+                spec.data.operator.location.endIdx += offset
+                if (spec.data.version) {
+                    spec.data.version.location.startIdx += offset
+                    spec.data.version.location.endIdx += offset
+                }
+            }
         }
     }
 }
 
-export function extractRequirementsFromPyprojectToml(
-    document: TextDocumentLike
-): [LooseProjectNameRequirement, RawRange][] {
+export function extractRequirementsFromPyprojectToml(document: TextDocumentLike): [RequirementFound, RawRange][] {
     const visitor = new PyprojectTOMLVisitor()
     traverseNodes(parseTOML(document.getText()), visitor)
     return visitor.dependencies

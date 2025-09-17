@@ -1,4 +1,3 @@
-import { ProjectNameRequirement } from 'pip-requirements-js'
 import { PackageMetadata } from './extension'
 import wretch from 'wretch'
 import { WretchError } from 'wretch/resolver'
@@ -8,12 +7,12 @@ import { outputChannel } from './output'
 export class PyPI {
     constructor(public cache: Map<string, () => Promise<PackageMetadata>> = new Map()) {}
 
-    public async fetchPackageMetadata(requirement: ProjectNameRequirement): Promise<PackageMetadata> {
-        if (!this.cache.has(requirement.name)) {
-            this.cache.set(requirement.name, async () => {
+    public async fetchPackageMetadata(requirementName: string): Promise<PackageMetadata> {
+        if (!this.cache.has(requirementName)) {
+            this.cache.set(requirementName, async () => {
                 let metadata: PackageMetadata
                 try {
-                    metadata = await wretch(`https://pypi.org/pypi/${requirement.name}/json`).get().json()
+                    metadata = await wretch(`https://pypi.org/pypi/${requirementName}/json`).get().json()
                 } catch (e) {
                     if (e instanceof WretchError) {
                         switch (e.status) {
@@ -23,16 +22,16 @@ export class PyPI {
                                 throw new Error(`Unexpected ${e.status} response from PyPI: ${e.json}`)
                         }
                     }
-                    this.cache.delete(requirement.name)
+                    this.cache.delete(requirementName)
                     outputChannel.appendLine(
-                        `Error fetching package metadata for ${requirement.name} - ${(e as Error).stack || e}`
+                        `Error fetching package metadata for ${requirementName} - ${(e as Error).stack || e}`
                     )
                     throw new Error('Cannot connect to PyPI')
                 }
                 return metadata
             })
         }
-        return await this.cache.get(requirement.name)!()
+        return await this.cache.get(requirementName)!()
     }
 
     public clear() {

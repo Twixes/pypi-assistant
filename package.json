@@ -77,7 +77,7 @@
         "dayjs": "^1.10.8",
         "lru-cache": "^10.2.0",
         "node-fetch": "^3.3.2",
-        "pip-requirements-js": "^0.2.1",
+        "pip-requirements-js": "^1.0.2",
         "semver": "^7.7.2",
         "toml": "^3.0.0",
         "toml-eslint-parser": "^0.9.3",

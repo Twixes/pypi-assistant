@@ -3,3 +3,4 @@ ptvsd==4.3.2
 aiochclient[aiohttp-speedups]==2.5.1
 futures>=3.0.5; python_version == '2.6' or python_version=='2.7'
 pycares==4.4.* # Without this, an older version is installed, which has compilation issues on Python 3.11
+foobar>=0.1,<0.3

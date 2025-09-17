@@ -1,10 +1,10 @@
 import dayjs from 'dayjs'
-import { ProjectNameRequirement } from 'pip-requirements-js'
+import { LooseProjectNameRequirementWithLocation } from 'pip-requirements-js'
 import * as semver from 'semver'
 import vscode from 'vscode'
-import { outputChannel } from './output'
 import { RequirementsParser } from './parsing'
 import { PyPI } from './pypi'
+import { RequirementFound, extractPackageName } from './parsing/types'
 
 /* Partial model of the package response returned by PyPI. */
 export interface PackageMetadata {
@@ -37,7 +37,7 @@ export class PyPIHoverProvider implements vscode.HoverProvider {
         if (!requirementWithRange) {
             return null
         }
-        const metadata = await pypi.fetchPackageMetadata(requirementWithRange[0])
+        const metadata = await pypi.fetchPackageMetadata(extractPackageName(requirementWithRange[0]))
         if (metadata === null) {
             return null
         }
@@ -64,9 +64,9 @@ export class PyPIHoverProvider implements vscode.HoverProvider {
 }
 
 class PyPICodeLens extends vscode.CodeLens {
-    requirement: ProjectNameRequirement
+    requirement: RequirementFound
 
-    constructor(range: vscode.Range, requirement: ProjectNameRequirement) {
+    constructor(range: vscode.Range, requirement: RequirementFound) {
         super(range)
         this.requirement = requirement
     }
@@ -87,7 +87,7 @@ export class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLen
     public async resolveCodeLens(codeLens: PyPICodeLens, _: vscode.CancellationToken): Promise<PyPICodeLens> {
         let title: string
         try {
-            const metadata = await pypi.fetchPackageMetadata(codeLens.requirement)
+            const metadata = await pypi.fetchPackageMetadata(extractPackageName(codeLens.requirement))
             title = this.formatPackageMetadata(metadata)
         } catch (e) {
             title = (e as Error).message
@@ -105,186 +105,220 @@ export class PyPICodeLensProvider implements vscode.CodeLensProvider<PyPICodeLen
     }
 }
 
-// Regex to check for a valid PIP requirement up to the cursor position and maybe a version after the curosor
-// TODO: Maybe use grammar parsing instead of regex to handle the format at one place only
-// Package name
-const nameRe = '(?<name>[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*)'
-// Optional extras
-const extrasRe = '(?<extras>\\[[A-Za-z0-9]+(?:\\s*,\\s*[A-Za-z0-9]+)*\\])?'
-// Operator
-const versionOpsRe = '(?<versionOps>(?:<=|>=|!=|==|===|<|>|~=))'
-// Chars that might be before the cursor inside of an operator
-const versionOpsPartOneRe = '(?<versionOpsPartOne>(?:[!=~<>=]))'
-// Chars that might be after the cursor inside of an operator
-const versionOpsPartTwoRe = '(?<versionOpsPartTwo>(?:=|==))'
-// Version
-const versionRe = '(?<version>[A-Za-z0-9._*-+!]+)'
-// Regex that matches the part from package name to operator (handles operator parts)
-const requirementRegex = new RegExp(`^${nameRe}\\s*${extrasRe}\\s*(${versionOpsRe}\\s*|${versionOpsPartOneRe})?$`)
-// Regex that matches the part from operator to end of version (handles operator parts)
-const versionRegex = new RegExp(`^(?:\\s*${versionOpsRe}|${versionOpsPartTwoRe})?\\s*${versionRe}?`)
-
-function extractQuotedContent(line: string, position: number): { beforeCursor: string; afterCursor: string } | null {
-    // Find the opening quote before the cursor
-    let openQuotePos = -1
-    for (let i = position - 1; i >= 0; i--) {
-        if (line[i] === '"' && (i === 0 || line[i - 1] !== '\\')) {
-            openQuotePos = i
-            break
-        }
-    }
-
-    if (openQuotePos === -1) return null
-
-    // Find the closing quote after the cursor
-    let closeQuotePos = -1
-    for (let i = position; i < line.length; i++) {
-        if (line[i] === '"' && (i === 0 || line[i - 1] !== '\\')) {
-            closeQuotePos = i
-            break
-        }
-    }
-
-    // Extract content inside quotes up to cursor and after cursor
-    const beforeCursor = line.substring(openQuotePos + 1, position)
-    const afterCursor = closeQuotePos !== -1 ? line.substring(position, closeQuotePos) : ''
-
-    return { beforeCursor, afterCursor }
-}
-
 export class PyPICompletionItemProvider implements vscode.CompletionItemProvider<vscode.CompletionItem> {
     constructor(public requirementsParser: RequirementsParser, public pypi: PyPI) {}
 
-    provideCompletionItems(
+    async provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken,
         _context: vscode.CompletionContext
-    ): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> {
-        const line = document.lineAt(position).text
-        let beforeCursor = line.substring(0, position.character)
-        let afterCursor = line.substring(position.character)
-        let requirementMatch = beforeCursor.match(requirementRegex)
-        let versionMatch = afterCursor.match(versionRegex)
+    ): Promise<vscode.CompletionItem[]> {
+        const parsedResult = this.requirementsParser.getAtPosition(document, position)
+        if (!parsedResult) {
+            return []
+        }
 
-        // If regular regex fails, try TOML quoted format
-        if (!requirementMatch) {
-            const quotedContent = extractQuotedContent(line, position.character)
-            if (quotedContent) {
-                beforeCursor = quotedContent.beforeCursor
-                afterCursor = quotedContent.afterCursor
-                requirementMatch = beforeCursor.match(requirementRegex)
-                versionMatch = afterCursor.match(versionRegex)
+        const [requirement, requirementRange] = parsedResult
+
+        // Only handle LooseProjectNameRequirementWithLocation requirements
+        if (typeof requirement === 'string') {
+            return []
+        }
+
+        const packageName = extractPackageName(requirement)
+        const lineText = document.lineAt(position.line).text
+
+        // For TOML files, the requirement locations are already adjusted to be absolute within the line
+        // For pip requirements files, they're relative to the requirement start
+        const isTomlFile = document.languageId === 'toml'
+
+        // Determine cursor position context
+        const cursorContext = this.analyzeCursorContext(
+            lineText,
+            position.character,
+            requirement,
+            requirementRange.start.character,
+            isTomlFile
+        )
+        if (!cursorContext) {
+            return []
+        }
+
+        try {
+            // Fetch package metadata to get available versions
+            const metadata = await this.pypi.fetchPackageMetadata(packageName)
+            if (!metadata) {
+                return []
             }
+
+            // Get and sort versions
+            const versions = this.getSortedVersions(metadata.releases)
+
+            // Generate completion items
+            return this.generateCompletionItems(versions, cursorContext, position.line, metadata.releases)
+        } catch (error) {
+            // Return empty array on error (e.g., package not found)
+            return []
+        }
+    }
+
+    private analyzeCursorContext(
+        lineText: string,
+        cursorPosition: number,
+        requirement: LooseProjectNameRequirementWithLocation,
+        requirementStartColumn: number,
+        isTomlFile: boolean
+    ): { operator: string; replaceRange: { start: number; end: number } } | null {
+        const nameEnd = requirement.data.name.location.endIdx
+        const versionSpecs = requirement.data.versionSpec || []
+
+        // For TOML files, requirement locations are already absolute within the line
+        // For pip files, they're relative to the requirement start
+        const relativeCursorPosition = isTomlFile ? cursorPosition : cursorPosition - requirementStartColumn
+        const getAbsolutePosition = (relativePos: number) =>
+            isTomlFile ? relativePos : requirementStartColumn + relativePos
+
+        // Don't provide completions after environment markers or comments
+        const envMarkerIndex = lineText.indexOf(';')
+        const commentIndex = lineText.indexOf('#')
+        const stopIndex = Math.min(
+            envMarkerIndex === -1 ? Infinity : envMarkerIndex,
+            commentIndex === -1 ? Infinity : commentIndex
+        )
+
+        if (stopIndex !== Infinity && cursorPosition >= stopIndex) {
+            return null
         }
 
-        // Before cursor there must be a package name maybe extras and a version operator
-        if (!requirementMatch) {
-            return undefined
-        }
-        const requirement = this.requirementsParser.getAtPosition(document, position)
-        if (!requirement) {
-            return undefined
-        }
-
-        return new Promise(async (resolve) => {
-            try {
-                const metadata = await this.pypi.fetchPackageMetadata(requirement[0])
-                const rawVersions = Object.keys(metadata.releases)
-                // Sort versions: semver versions first (sorted by semver), then non-semver versions (sorted alphabetically)
-                const semverVersions = rawVersions.filter((v) => semver.valid(v)).sort(semver.rcompare)
-                const nonSemverVersions = rawVersions
-                    .filter((v) => !semver.valid(v))
-                    .sort()
-                    .reverse()
-                const allVersions = semverVersions.concat(nonSemverVersions)
-
-                // versionMatch was already calculated above based on context (regular or TOML)
-
-                const op = requirementMatch!.groups?.versionOps
-                const opPartOne = requirementMatch!.groups?.versionOpsPartOne
-                const opTwo = versionMatch?.groups?.versionOps
-                const opPartTwo = versionMatch?.groups?.versionOpsPartTwo
-
-                // Build the suggested operator by analyzing the context
-                let operator: string
-                let finalOperator: string
-
-                // Check for split operators (cursor between parts)
-                if ((op === '>' || op === '<' || op === '!' || op === '~') && opPartTwo === '=') {
-                    // Special case: cursor between > and =, < and =, ! and =, or ~ and =
-                    finalOperator = `${op}${opPartTwo}`
-                    operator = opPartTwo
-                } else if (opPartOne === '=' && opPartTwo === '=') {
-                    // Cursor between first and second = in ==
-                    finalOperator = '=='
-                    operator = ''
-                } else if (op === '==' && opPartTwo === '=') {
-                    // Cursor between second and third = in ===
-                    finalOperator = '==='
-                    operator = opPartTwo
-                } else if (opPartOne && opPartTwo) {
-                    // Cursor is between two parts of an operator (generic case)
-                    const fullOp = `${opPartOne}${opPartTwo}`
-                    finalOperator = fullOp
-                    operator = opPartTwo
-                } else if (opPartOne) {
-                    // Cursor is after first char of a longer operator
-                    if (opPartOne === '=') {
-                        // Single = should become ==
-                        operator = '='
-                        finalOperator = '=='
-                    } else {
-                        operator = '='
-                        finalOperator = `${opPartOne}=`
-                    }
-                } else if (opPartTwo) {
-                    // Cursor is before = or ==
-                    operator = opPartTwo
-                    finalOperator = `=${opPartTwo}`
-                } else if (opTwo) {
-                    // Cursor is before a full valid operator
-                    operator = opTwo
-                    finalOperator = opTwo
-                } else if (op) {
-                    // Or cursor is behind a full valid operator
-                    operator = ''
-                    finalOperator = op
-                } else {
-                    // No operator before and after the cursor
-                    operator = '=='
-                    finalOperator = '=='
+        // Find which version spec the cursor is in/near
+        for (const spec of versionSpecs) {
+            // If cursor is within this version spec, replace the entire spec
+            if (relativeCursorPosition >= spec.location.startIdx && relativeCursorPosition <= spec.location.endIdx) {
+                const operator = spec.data.operator.data
+                return {
+                    operator: operator === '=' ? '==' : operator,
+                    replaceRange: {
+                        start: getAbsolutePosition(spec.location.startIdx),
+                        end: getAbsolutePosition(spec.location.endIdx),
+                    },
                 }
-
-                // Build all suggested items
-                const items = allVersions.map((version, index) => {
-                    const item = new vscode.CompletionItem(
-                        `${finalOperator}${version}`,
-                        vscode.CompletionItemKind.Constant
-                    )
-                    // If a complete operator already exists and no partial operators, insert only version
-                    if (op && !opPartOne && !opPartTwo) {
-                        item.insertText = version
-                    } else {
-                        item.insertText = `${operator}${version}`
-                    }
-                    item.sortText = String(index).padStart(5, '0')
-
-                    // If there is a version after the cursor, replace it
-                    if (versionMatch) {
-                        const start = position
-                        const end = position.translate(0, versionMatch[0].length)
-                        item.range = new vscode.Range(start, end)
-                    }
-                    return item
-                })
-
-                outputChannel.appendLine(`Suggesting ${items.length} items`)
-                resolve(items)
-            } catch (err) {
-                outputChannel.appendLine(`Failed to provide PIP version code completion: ${err}`)
-                resolve(undefined)
             }
+
+            // If cursor is shortly after this spec (within whitespace), also replace this spec
+            if (relativeCursorPosition > spec.location.endIdx) {
+                const afterSpecStart = getAbsolutePosition(spec.location.endIdx)
+                const afterSpec = lineText.substring(afterSpecStart, cursorPosition)
+                // Only whitespace between spec and cursor
+                if (/^\s+$/.test(afterSpec)) {
+                    // Always replace the entire spec when cursor is after it in whitespace
+                    const operator = spec.data.operator.data === '=' ? '==' : spec.data.operator.data
+                    return {
+                        operator,
+                        replaceRange: {
+                            start: getAbsolutePosition(spec.location.startIdx),
+                            end: cursorPosition,
+                        },
+                    }
+                }
+            }
+        }
+
+        // Check if cursor is after a comma (for new version spec after last one)
+        if (versionSpecs.length > 0) {
+            const lastSpec = versionSpecs[versionSpecs.length - 1]
+            const afterSpecStart = getAbsolutePosition(lastSpec.location.endIdx)
+            const afterLastSpec = lineText.substring(afterSpecStart)
+            const commaMatch = afterLastSpec.match(/^\s*,\s*/)
+
+            if (commaMatch && relativeCursorPosition >= lastSpec.location.endIdx + commaMatch[0].length) {
+                const firstOperator = versionSpecs[0].data.operator.data
+                const complementaryOperator = this.getComplementaryOperator(firstOperator)
+                return {
+                    operator: complementaryOperator,
+                    replaceRange: { start: cursorPosition, end: cursorPosition },
+                }
+            }
+        }
+
+        // Check if cursor is after package name (new first version spec)
+        if (relativeCursorPosition >= nameEnd) {
+            // Skip trailing whitespace for insertion point
+            let relativeInsertPosition = relativeCursorPosition
+            while (
+                relativeInsertPosition > nameEnd &&
+                lineText[getAbsolutePosition(relativeInsertPosition) - 1] === ' '
+            ) {
+                relativeInsertPosition--
+            }
+            return {
+                operator: '==',
+                replaceRange: {
+                    start: getAbsolutePosition(relativeInsertPosition),
+                    end: cursorPosition,
+                },
+            }
+        }
+        return null
+    }
+
+    private getComplementaryOperator(operator: string): string {
+        switch (operator) {
+            case '>':
+                return '<='
+            case '>=':
+                return '<'
+            case '<':
+                return '>='
+            case '<=':
+                return '>'
+            default:
+                return '=='
+        }
+    }
+
+    private getSortedVersions(releases: Record<string, { upload_time: string }[]>): string[] {
+        const versions = Object.keys(releases)
+        // Sort versions using semver, fallback to alphabetical
+        return versions.sort((a, b) => {
+            try {
+                // Try semver comparison first
+                const aValid = semver.valid(a)
+                const bValid = semver.valid(b)
+                if (aValid && bValid) {
+                    return semver.rcompare(a, b) // Reverse compare for descending order
+                }
+                // If only one is valid semver, prioritize it
+                if (aValid && !bValid) return -1
+                if (!aValid && bValid) return 1
+                // Fall back to alphabetical comparison (reverse for descending)
+                return b.localeCompare(a)
+            } catch {
+                // Fallback to alphabetical comparison
+                return b.localeCompare(a)
+            }
+        })
+    }
+
+    private generateCompletionItems(
+        versions: string[],
+        context: { operator: string; replaceRange: { start: number; end: number } },
+        lineNumber: number,
+        releases: Record<string, { upload_time: string }[]>
+    ): vscode.CompletionItem[] {
+        return versions.map((version, index) => {
+            const completionItem = new vscode.CompletionItem(
+                `${context.operator}${version}`,
+                vscode.CompletionItemKind.Value
+            )
+            completionItem.insertText = `${context.operator}${version}`
+            completionItem.range = new vscode.Range(
+                new vscode.Position(lineNumber, context.replaceRange.start),
+                new vscode.Position(lineNumber, context.replaceRange.end)
+            )
+            completionItem.sortText = String(index).padStart(4, '0') // Latest versions first
+            completionItem.detail = `Released on ${dayjs(releases[version][0].upload_time).format('D MMMM YYYY')}`
+            return completionItem
         })
     }
 }
@@ -295,7 +329,26 @@ export function activate(_context: vscode.ExtensionContext) {
     const hoverProvider = new PyPIHoverProvider(requirementsParser, pypi)
     const codeLensProvider = new PyPICodeLensProvider(requirementsParser, pypi)
     const completionItemProvider = new PyPICompletionItemProvider(requirementsParser, pypi)
-    const completionTriggerChars = ['=', '<', '>', '~', '!', ' ']
+    const completionTriggerChars = [
+        '=',
+        '<',
+        '>',
+        '~',
+        '!',
+        ',',
+        ' ',
+        '.',
+        '0',
+        '1',
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9',
+    ]
     vscode.languages.registerCodeLensProvider('pip-requirements', codeLensProvider)
     vscode.languages.registerHoverProvider('pip-requirements', hoverProvider)
     vscode.languages.registerCompletionItemProvider(

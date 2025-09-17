@@ -1,19 +1,24 @@
-import { LooseProjectNameRequirement } from 'pip-requirements-js'
+import {
+    LooseProjectNameRequirement,
+    LooseProjectNameRequirementWithLocation,
+    WithLocation,
+    parsePipRequirementsLineLoosely,
+} from 'pip-requirements-js'
 import vscode from 'vscode'
 import { LRUCache } from 'lru-cache'
 import { extractRequirementsFromPipRequirements } from './requirements'
 import { extractRequirementsFromPyprojectToml } from './pyproject'
-import { RawRange } from './types'
+import { RequirementFound, RawRange, extractPackageName } from './types'
 import { outputChannel } from '../output'
 
 type VersionedFileKey = `${string}::${number}`
 
 export class RequirementsParser {
-    cache: Map<VersionedFileKey, [LooseProjectNameRequirement, RawRange][]> = new LRUCache({ max: 30 })
+    cache: LRUCache<VersionedFileKey, [RequirementFound, RawRange][]> = new LRUCache({ max: 200 })
 
-    public getAll(document: vscode.TextDocument): [LooseProjectNameRequirement, vscode.Range][] {
+    public getAll(document: vscode.TextDocument): [RequirementFound, vscode.Range][] {
         const cacheKey: VersionedFileKey = `${document.uri.toString(true)}::${document.version}`
-        let requirements: [LooseProjectNameRequirement, RawRange][]
+        let requirements: [RequirementFound, RawRange][]
         if (this.cache.has(cacheKey)) {
             requirements = this.cache.get(cacheKey)!
         } else {
@@ -38,21 +43,21 @@ export class RequirementsParser {
                 `Parsed requirements in ${document.uri.toString(true)}, v${document.version}:\n${requirements
                     .map(
                         ([requirement, range]) =>
-                            `${requirement.name} @ ${range[0]}#${range[1]} - ${range[2]}#${range[3]}`
+                            `${extractPackageName(requirement)} @ ${range[0]}#${range[1]} - ${range[2]}#${range[3]}`
                     )
                     .join('\n')}`
             )
             this.cache.set(cacheKey, requirements)
         }
         return requirements
-            .filter(([requirement]) => requirement.name !== 'python')
+            .filter(([requirement]) => extractPackageName(requirement) !== 'python')
             .map(([requirement, range]) => [requirement, new vscode.Range(...range)])
     }
 
     public getAtPosition(
         document: vscode.TextDocument,
         position: vscode.Position
-    ): [LooseProjectNameRequirement, vscode.Range] | null {
+    ): [RequirementFound, vscode.Range] | null {
         const requirements = this.getAll(document)
         for (const [requirement, range] of requirements) {
             if (range.contains(position)) {
