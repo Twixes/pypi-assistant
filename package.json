@@ -58,6 +58,7 @@
         "@types/jest": "^29.0.3",
         "@types/node": "^17.0.21",
         "@types/node-fetch": "^2.6.4",
+        "@types/semver": "^7.7.1",
         "@types/vscode": "^1.45.0",
         "@typescript-eslint/eslint-plugin": "^5.13.0",
         "@typescript-eslint/parser": "^5.13.0",
@@ -77,6 +78,7 @@
         "lru-cache": "^10.2.0",
         "node-fetch": "^3.3.2",
         "pip-requirements-js": "^0.2.1",
+        "semver": "^7.7.2",
         "toml": "^3.0.0",
         "toml-eslint-parser": "^0.9.3",
         "wretch": "^2.6.0"
