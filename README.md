@@ -1,12 +1,14 @@
 # [Python PyPI Assistant for VS Code](https://marketplace.visualstudio.com/items?itemName=twixes.pypi-assistant)
 
-Handy hover tooltips + CodeLens for dependencies from PyPI – similar to what VS Code has built in for dependencies in `package.json`.
+Understand and upgrade your Python dependencies effortlessly. PyPI Assistant adds 3 key features to your `requirements.txt` and `pyproject.toml` files:
 
-Gain access to: package name, description, author(s), license, and latest version at a glance, with links in case you need more details.
+-   Hover tooltips on PyPI dependencies. All the key details, right in the editor – package description, author, license, and last release date, plus links.
+-   CodeLens inline info. See the latest version at a glance.
+-   Version completion suggestions. Specify the right constraints quickly, based on the package's actual release history.
 
 ![Extension preview](preview.png)
 
-Supported formats:
+PyPI Assistant supports virtually all the requirements formats out there:
 
 -   [pip requirements files](https://pip.pypa.io/en/stable/user_guide/#requirements-files) – `requirements.txt`, `requirements.in`, `constraints.txt`, and such
 -   [Poetry](https://python-poetry.org/docs/pyproject/#dependencies-and-dependency-groups) – `pyproject.toml`'s `tool.poetry.dependencies`

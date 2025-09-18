@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.0.0]
+
+### Added
+
+-   PyPI assistant now provides completions when typing version specs! This has long been requested - thanks to [@ponchofiesta](https://github.com/ponchofiesta) for contributing the initial version in [#42](https://github.com/Twixes/pypi-assistant/pull/42).
+
 ## [2.3.0]
 
 ### Added
