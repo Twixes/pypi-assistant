@@ -1,6 +1,6 @@
 # [Python PyPI Assistant for VS Code](https://marketplace.visualstudio.com/items?itemName=twixes.pypi-assistant)
 
-Understand and upgrade your Python dependencies effortlessly. PyPI Assistant adds 3 key features to your `requirements.txt` and `pyproject.toml` files:
+Understand and upgrade your Python dependencies effortlessly. PyPI Assistant adds three key features to every `requirements.txt` and `pyproject.toml` file:
 
 -   Hover tooltips on PyPI dependencies. All the key details, right in the editor – package description, author, license, and last release date, plus links.
 -   CodeLens inline info. See the latest version at a glance.
