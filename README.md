@@ -8,7 +8,7 @@ Understand and upgrade your Python dependencies effortlessly. PyPI Assistant add
 
 ![Extension preview](preview.png)
 
-PyPI Assistant supports virtually all the requirements formats out there:
+PyPI Assistant supports virtually all the popular requirements formats:
 
 -   [pip requirements files](https://pip.pypa.io/en/stable/user_guide/#requirements-files) – `requirements.txt`, `requirements.in`, `constraints.txt`, and such
 -   [Poetry](https://python-poetry.org/docs/pyproject/#dependencies-and-dependency-groups) – `pyproject.toml`'s `tool.poetry.dependencies`
