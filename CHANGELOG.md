@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.0.1]
+
+### Fixed
+
+-   Version completion suggestions didn't appear for some older packages, like `django`. It turns out releases pushed before 2014 or so don't have upload time information, which was assumed present for "Released on [date]". In such cases we now show "Released on unknown date".
+
 ## [3.0.0]
 
 ### Added
