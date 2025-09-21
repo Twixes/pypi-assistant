@@ -1,10 +1,12 @@
 import dayjs from 'dayjs'
 import { LooseProjectNameRequirementWithLocation } from 'pip-requirements-js'
 import * as semver from 'semver'
-import vscode from 'vscode'
+import vscode, { version } from 'vscode'
 import { RequirementsParser } from './parsing'
 import { PyPI } from './pypi'
 import { RequirementFound, extractPackageName } from './parsing/types'
+import { outputChannel } from './output'
+import { info } from 'console'
 
 /* Partial model of the package response returned by PyPI. */
 export interface PackageMetadata {
@@ -55,9 +57,11 @@ export class PyPIHoverProvider implements vscode.HoverProvider {
         if (authorSubpart || licenseSubpart)
             metadataPresentation.push([authorSubpart, licenseSubpart].filter(Boolean).join(' '))
         metadataPresentation.push(
-            `Latest version: ${linkify(info.version, info.release_url)} (released on ${dayjs(
-                releases[info.version][0].upload_time
-            ).format('D MMMM YYYY')}).`
+            `Latest version: ${linkify(info.version, info.release_url)} (released on ${
+                releases[info.version].length > 0
+                    ? dayjs(releases[info.version][0].upload_time).format('D MMMM YYYY')
+                    : 'unknown date'
+            }).`
         )
         return metadataPresentation.join('\n\n')
     }
@@ -154,11 +158,11 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
 
             // Get and sort versions
             const versions = this.getSortedVersions(metadata.releases)
-
             // Generate completion items
             return this.generateCompletionItems(versions, cursorContext, position.line, metadata.releases)
         } catch (error) {
             // Return empty array on error (e.g., package not found)
+            outputChannel.appendLine(`Completion items error at ${position.line}: ${error}`)
             return []
         }
     }
@@ -317,7 +321,11 @@ export class PyPICompletionItemProvider implements vscode.CompletionItemProvider
                 new vscode.Position(lineNumber, context.replaceRange.end)
             )
             completionItem.sortText = String(index).padStart(4, '0') // Latest versions first
-            completionItem.detail = `Released on ${dayjs(releases[version][0].upload_time).format('D MMMM YYYY')}`
+            completionItem.detail = `Released on ${
+                releases[version].length > 0
+                    ? dayjs(releases[version][0].upload_time).format('D MMMM YYYY')
+                    : 'unknown date'
+            }`
             return completionItem
         })
     }

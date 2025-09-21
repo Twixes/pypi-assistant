@@ -1048,6 +1048,56 @@ describe('PyPICompletionItemProvider', () => {
                 expect(resolved).toEqual([])
             })
 
+            it('should handle packages with missing upload_time entries (like older Django versions)', async () => {
+                const mockRequirement = createMockRequirement('django')
+                const mockDjangoMetadata: PackageMetadata = {
+                    info: {
+                        name: 'django',
+                        summary: 'Web framework',
+                        home_page: 'https://www.djangoproject.com/',
+                        author: 'Django Software Foundation',
+                        author_email: 'foundation@djangoproject.com',
+                        package_url: 'https://pypi.org/project/django/',
+                        license: 'BSD-3-Clause',
+                        version: '5.0.0',
+                        release_url: 'https://pypi.org/project/django/5.0.0/',
+                    },
+                    releases: {
+                        '5.0.0': [{ upload_time: '2023-12-07T10:13:14' }],
+                        '4.2.8': [{ upload_time: '2023-12-04T08:02:25' }],
+                        '1.0': [], // Empty array - no upload_time data for older versions
+                        '0.96': [], // Empty array - no upload_time data for older versions
+                    },
+                }
+
+                mockDocument.lineAt = jest.fn().mockReturnValue({
+                    text: 'django==',
+                })
+                mockRequirementsParser.getAtPosition.mockReturnValue([mockRequirement, createMockRange(0, 0, 0, 8)])
+                mockPypi.fetchPackageMetadata.mockResolvedValue(mockDjangoMetadata)
+
+                const result = provider.provideCompletionItems(
+                    mockDocument,
+                    new mockVscode.Position(0, 8),
+                    {} as any,
+                    {} as any
+                )
+
+                const items = (await result) as any[]
+
+                expect(items).toHaveLength(4)
+                expect(items[0].label).toBe('==5.0.0')
+                expect(items[1].label).toBe('==4.2.8')
+                expect(items[2].label).toBe('==1.0')
+                expect(items[3].label).toBe('==0.96')
+
+                // Check that items with missing upload_time show "unknown date"
+                expect(items[0].detail).toBe('Released on 7 December 2023')
+                expect(items[1].detail).toBe('Released on 4 December 2023')
+                expect(items[2].detail).toBe('Released on unknown date')
+                expect(items[3].detail).toBe('Released on unknown date')
+            })
+
             it('should handle string requirements (non-parsed) gracefully', async () => {
                 // String requirements are returned by parser for some pyproject.toml cases
                 mockDocument.lineAt = jest.fn().mockReturnValue({
